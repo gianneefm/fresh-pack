@@ -1,0 +1,461 @@
+import React, { useMemo, useId, useRef } from 'react';
+import { Star, TrendingUp, Minus, TrendingDown, XCircle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
+import { toPng } from 'html-to-image';
+
+/** --- UTILS --- **/
+
+const exportElement = async (ref, fileName) => {
+  if (!ref.current) return;
+  try {
+    const dataUrl = await toPng(ref.current, {
+      quality: 1,
+      pixelRatio: 3,
+      backgroundColor: '#000000', // Принудительный черный фон для заполнения краев
+      cacheBust: true,
+      skipFonts: false,
+    });
+    const link = document.createElement('a');
+    link.download = `${fileName}.png`;
+    link.href = dataUrl;
+    link.click();
+  } catch (err) {
+    console.error('Export failed', err);
+  }
+};
+
+const getWeekNumber = (date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+const getWeekDates = (date) => {
+  const d = new Date(date);
+  const dayOfWeek = d.getDay();
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const startDate = new Date(d);
+  startDate.setDate(d.getDate() + diff);
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 6);
+  return { startDate, endDate };
+};
+
+const formatWeekDateRange = (startDate, endDate) => {
+  const options = { month: 'short', day: 'numeric' };
+  const startMonth = startDate.toLocaleDateString('en-US', { ...options, month: 'short' });
+  const endMonth = endDate.toLocaleDateString('en-US', { ...options, month: 'short' });
+  if (startDate.getMonth() === endDate.getMonth()) {
+    return `${startMonth} ${startDate.getDate()} – ${endDate.getDate()}, ${endDate.getFullYear()}`;
+  }
+  return `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+};
+
+const interpolateColor = (color1, color2, factor) => {
+  const r1 = parseInt(color1.substring(1, 3), 16);
+  const g1 = parseInt(color1.substring(3, 5), 16);
+  const b1 = parseInt(color1.substring(5, 7), 16);
+  const r2 = parseInt(color2.substring(1, 3), 16);
+  const g2 = parseInt(color2.substring(3, 5), 16);
+  const b2 = parseInt(color2.substring(5, 7), 16);
+  const r = Math.round(r1 + (r2 - r1) * factor);
+  const g = Math.round(g1 + (g2 - g1) * factor);
+  const b = Math.round(b1 + (b2 - b1) * factor);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+};
+
+const getAdvancedTierColor = (avgScore, tierLabel, tierRatio) => {
+  const thresholds = {
+    'TOP': { min: 4.25, max: 5.0, prev: '#059669', current: '#059669', next: '#7D9A3A' },
+    'POP': { min: 3.75, max: 4.25, prev: '#059669', current: '#7D9A3A', next: '#F59E0B' },
+    'MOP': { min: 2.5, max: 3.75, prev: '#7D9A3A', current: '#F59E0B', next: '#EA580C' },
+    'FLOP': { min: 1.0, max: 2.5, prev: '#F59E0B', current: '#EA580C', next: '#B91C1C' },
+    'STOP': { min: 0.0, max: 1.0, prev: '#EA580C', current: '#B91C1C', next: '#B91C1C' }
+  };
+  const config = thresholds[tierLabel];
+  if (!config) return '#6B7280';
+  const potentialMid = (config.min + config.max) / 2;
+  let baseHue = config.current;
+  if (avgScore > potentialMid) baseHue = interpolateColor(config.current, config.prev, Math.min((avgScore - potentialMid) / (config.max - potentialMid), 1));
+  else if (avgScore < potentialMid) baseHue = interpolateColor(config.current, config.next, Math.min((potentialMid - avgScore) / (potentialMid - config.min), 1));
+  return interpolateColor('#4B5563', baseHue, 0.3 + (Math.min(tierRatio, 0.5) / 0.5) * 0.7);
+};
+
+const getDynamicColor = (score) => {
+  const scale = [
+    { t: 0, c: '#B91C1C' }, { t: 1, c: '#EA580C' }, { t: 2, c: '#F59E0B' }, { t: 3.75, c: '#7D9A3A' }, { t: 4.5, c: '#059669' }
+  ];
+  if (score <= 0) return scale[0].c;
+  if (score >= 5) return scale[4].c;
+  for (let i = 0; i < scale.length - 1; i++) {
+    if (score >= scale[i].t && score <= scale[i + 1].t) {
+      return interpolateColor(scale[i].c, scale[i + 1].c, (score - scale[i].t) / (scale[i + 1].t - scale[i].t));
+    }
+  }
+  return scale[4].c;
+};
+
+const getRankLabel = (score, isNA) => isNA ? "N/A" : score >= 4.25 ? "TOP" : score >= 3.75 ? "POP" : score >= 2.5 ? "MOP" : score >= 1 ? "FLOP" : "STOP";
+
+/** --- COMPONENTS --- **/
+
+const ActiveSector = (props) => {
+  const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  const RADIAN = Math.PI / 180;
+  const nx = cx + 12 * Math.cos(-midAngle * RADIAN), ny = cy + 12 * Math.sin(-midAngle * RADIAN);
+  return (
+    <g transform={`translate(${nx - cx}, ${ny - cy})`}>
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+    </g>
+  );
+};
+
+const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, customGradientStops = null, starColor, onStarClick }) => {
+  const uniqueId = useId().replace(/:/g, "");
+  const fillPercent = Math.max(0, Math.min(100, percentage));
+  const activeColor = isNA ? '#4B5563' : (starColor || getDynamicColor(score));
+  const { starPath, facets } = useMemo(() => {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5 - Math.PI / 2;
+      const r = i % 2 === 0 ? 90 : 40;
+      pts.push({ x: 100 + r * Math.cos(a), y: 100 + r * Math.sin(a) });
+    }
+    return {
+      starPath: `M ${pts[0].x},${pts[0].y} ` + pts.map(p => `L ${p.x},${p.y}`).join(" ") + " Z",
+      facets: pts.map((p, i) => `M 100,100 L ${p.x},${p.y} L ${pts[(i + 1) % 10].x},${pts[(i + 1) % 10].y} Z`)
+    };
+  }, []);
+
+  return (
+    <span className={`${sizeClass} inline-flex items-center justify-center relative cursor-pointer`} onClick={onStarClick}>
+      <svg width="100%" height="100%" viewBox="0 0 200 200" style={{ filter: 'drop-shadow(1px 1px 3px rgba(0,0,0,0.5))' }}>
+        <defs>
+          <clipPath id={`clip-${uniqueId}`}><path d={starPath} /></clipPath>
+          <linearGradient id={`grad-${uniqueId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            {customGradientStops ? customGradientStops.map((s, i) => <stop key={i} offset={`${s.offset}%`} stopColor={s.color} />) :
+              <><stop offset="0%" stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor="#374151" /><stop offset="100%" stopColor="#374151" /></>}
+          </linearGradient>
+        </defs>
+        <path d={starPath} fill={`url(#grad-${uniqueId})`} />
+        <g clipPath={`url(#clip-${uniqueId})`}>
+          {facets.map((d, i) => <path key={i} d={d} fill={i % 2 === 0 ? "white" : "black"} fillOpacity={i % 2 === 0 ? 0.07 : 0.12} />)}
+        </g>
+        <path d={starPath} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+      </svg>
+    </span>
+  );
+};
+
+const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor }) => {
+  const ref = useRef(null);
+  return (
+    <div ref={ref} className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans">
+      <div className="flex-shrink-0 font-bold text-white/90">{labelText}</div>
+      <div className="flex flex-col items-center gap-1">
+        <GradientStar percentage={tierRatio * 100} score={avgScore} sizeClass="size-10 sm:size-12" isNA={isNAState} starColor={computedColor} onStarClick={() => exportElement(ref, `Footer-${tierLabel}`)} />
+        {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
+      </div>
+    </div>
+  );
+};
+
+const ReleaseItem = ({ title, artist, score, coverLink }) => {
+  const color = useMemo(() => {
+    const t = score >= 4.25 ? 'TOP' : score >= 3.75 ? 'POP' : score >= 2.5 ? 'MOP' : score >= 1.0 ? 'FLOP' : 'STOP';
+    const conf = { TOP: [4.25, 5.0, '#059669', '#059669', '#7D9A3A'], POP: [3.75, 4.25, '#059669', '#7D9A3A', '#F59E0B'], MOP: [2.5, 3.75, '#7D9A3A', '#F59E0B', '#EA580C'], FLOP: [1.0, 2.5, '#F59E0B', '#EA580C', '#B91C1C'], STOP: [0.0, 1.0, '#EA580C', '#B91C1C', '#B91C1C'] }[t];
+    const mid = (conf[0] + conf[1]) / 2;
+    return score > mid ? interpolateColor(conf[3], conf[2], (score - mid) / (conf[1] - mid)) : interpolateColor(conf[3], conf[4], (mid - score) / (mid - conf[0]));
+  }, [score]);
+
+  return (
+    <div className="relative group w-full aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans">
+      <img src={coverLink} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute top-0 right-0 bg-black px-2 py-1 rounded-tr-xl rounded-bl-md shadow-xl z-20 border-l border-b border-white/10 min-w-[28px] text-center">
+        <span className="font-sans text-[9px] sm:text-[10px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(2)}</span>
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
+      <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
+        <h3 className="text-white text-[10px] sm:text-[12px] font-extrabold tracking-tight leading-tight w-full break-words uppercase">{title}</h3>
+        <p className="text-white/80 text-[8px] sm:text-[10px] font-medium leading-tight mt-1 w-full break-words">{artist}</p>
+      </div>
+    </div>
+  );
+};
+
+const Header = ({ weekNumber, dateRangeText }) => {
+  const ref = useRef(null);
+  return (
+    <header ref={ref} className="flex flex-col items-center mb-10 text-center select-none pb-4 font-sans relative">
+      <div className="absolute inset-0 z-50 opacity-0 cursor-pointer" onClick={() => exportElement(ref, 'Header')} />
+      <h1 className="font-black tracking-tighter uppercase bg-clip-text text-transparent leading-[1.2] px-8" style={{ backgroundImage: 'linear-gradient(to right, #059669, #7d9a3a, #f59e0b, #ea580c, #b91c1c)', WebkitBackgroundClip: 'text', backgroundClip: 'text', fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' }}>FRESH PACK O'FLOW</h1>
+      <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">{dateRangeText}</p>
+      <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK {weekNumber}</p>
+    </header>
+  );
+};
+
+const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, releases, computedColor, tierRatio }) => {
+  const rowRef = useRef(null);
+  const avg = releases.length ? releases.reduce((acc, r) => acc + r.score, 0) / releases.length : 0;
+
+  return (
+    <section className="w-full mb-8 last:mb-0 pb-8 font-sans">
+      {/* Обертка с черным фоном для предотвращения белых краев при экспорте */}
+      <div ref={rowRef} className="bg-black p-0.5 rounded-3xl"> 
+        <div 
+          className={`flex flex-col sm:flex-row rounded-2xl overflow-hidden border border-white/10 shadow-md relative`}
+          style={{ background: `${rowBgColor}` }}
+        >
+          <div 
+            className={`flex flex-col items-center justify-center py-6 sm:py-0 sm:w-28 md:w-32 flex-shrink-0 gap-1 ${textColorClass} shadow-xl cursor-pointer`} 
+            onClick={() => exportElement(rowRef, `Tier-${label}`)}
+            style={{ background: `${bgColor}` }}
+          >
+            {Icon && <Icon className="size-6 sm:size-7 opacity-90" />}
+            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter text-center leading-none">{label}</h2>
+          </div>
+
+          <div className="flex flex-wrap justify-center p-4 gap-3 flex-grow min-h-44">
+            {releases.length ? releases.map((rel, idx) => (
+              <div key={idx} className="w-[calc(50%-0.75rem)] xs:w-[calc(33.33%-0.75rem)] sm:w-32 md:w-36">
+                <ReleaseItem {...rel} />
+              </div>
+            )) : (
+              <div className="flex items-center justify-center w-full h-36 border-2 border-dashed border-gray-400/40 rounded-xl px-4 text-center text-gray-500/80 font-extrabold uppercase text-xs">
+                NO SUCH RELEASES
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <RankFooter 
+        avgScore={avg} 
+        isNAState={!releases.length} 
+        tierRatio={tierRatio} 
+        tierLabel={label} 
+        computedColor={computedColor} 
+        labelText={
+          <div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight">
+            <span style={{ color: computedColor }}>{label}</span>
+            <span className="text-gray-400">RATIO</span>
+          </div>
+        } 
+      />
+    </section>
+  );
+};
+
+const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, dominantLabel, dominantColor, tierBase, tierStats }) => {
+  const footerRef = useRef(null);
+
+  const finalPieData = useMemo(() => {
+    if (isNAState) return [{ name: "EMPTY", value: 1, fill: "#4B5563" }];
+    return pieData
+      .filter(data => data.value > 0)
+      .map(data => ({ ...data, fill: data.color }));
+  }, [isNAState, pieData]);
+
+  const activeCount = finalPieData.length;
+
+  const filteredActiveIndex = useMemo(() => {
+    if (isNAState || dominantIndex === -1) return -1;
+    return finalPieData.findIndex(d => d.name === dominantLabel);
+  }, [finalPieData, dominantLabel, isNAState, dominantIndex]);
+
+  const customGradientStops = useMemo(() => {
+    if (isNAState || !tierStats || tierStats.length === 0) return null;
+
+    let cumulativeOffset = 0;
+    const stops = [];
+    const orderedTierStats = tierBase.map(baseTier => tierStats.find(stat => stat.label === baseTier.label))
+                                    .filter(stat => stat !== undefined);
+
+    orderedTierStats.forEach((stat, index) => {
+      if (stat.ratio > 0) {
+        const color = stat.computedColor;
+        const offset = cumulativeOffset * 100;
+        stops.push({ offset: Math.max(0, offset).toFixed(2), color: color });
+        if (index < orderedTierStats.length - 1) {
+          cumulativeOffset += stat.ratio;
+        }
+      }
+    });
+
+    if (cumulativeOffset < 1 && stops.length > 0) {
+        stops.push({ offset: "100.00", color: stops[stops.length - 1].color });
+    }
+
+    if (stops.length > 0 && parseFloat(stops[0].offset) > 0) {
+        stops.unshift({ offset: "0.00", color: stops[0].color });
+    }
+
+    return stops;
+  }, [isNAState, tierStats, tierBase]);
+
+  const textGradientStyle = useMemo(() => {
+    if (!customGradientStops) return 'none';
+    const stops = customGradientStops.map(s => `${s.color} ${s.offset}%`).join(', ');
+    return `linear-gradient(to right, ${stops})`;
+  }, [customGradientStops]);
+
+  const reverseRankLabelGradient = useMemo(() => {
+    if (!customGradientStops) return 'none';
+    const reversedColors = [...customGradientStops].reverse();
+    const stops = reversedColors.map((s, idx) => {
+      const offset = (idx / (reversedColors.length - 1)) * 100;
+      return `${s.color} ${offset}%`;
+    }).join(', ');
+    return `linear-gradient(to right, ${stops})`;
+  }, [customGradientStops]);
+
+  const renderCustomizedLabel = (props) => {
+    const { cx, cy, innerRadius, outerRadius, percent, name, startAngle, endAngle } = props;
+    const RADIAN = Math.PI / 180;
+    if (isNAState || (activeCount === 1 && !isNAState)) return null;
+    const midAngle = (startAngle + endAngle) / 2;
+    const tierRatio = percent * 100;
+    const radius = (innerRadius + outerRadius) / 2;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (tierRatio < 5) return null;
+    const baseFontSize = activeCount > 3 ? 9 : 11;
+    const isOneLine = tierRatio <= 10;
+    const rotationAngle = isOneLine ? -midAngle : 0;
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <text
+          x={0} y={0} fill="white" textAnchor="middle" dominantBaseline="central"
+          transform={`rotate(${rotationAngle})`}
+          className="font-sans font-black uppercase tracking-tighter pointer-events-none"
+          style={{ fontSize: `${baseFontSize}px` }}
+        >
+          {isOneLine ? (
+            <tspan x={0} dy="0.3em" className="fill-white/90">{`${name} ${tierRatio.toFixed(1)}%`}</tspan>
+          ) : (
+            <>
+              <tspan x={0} dy="-0.6em" className="fill-white/90">{name}</tspan>
+              <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700 }} className="fill-white/70">{`${tierRatio.toFixed(1)}%`}</tspan>
+            </>
+          )}
+        </text>
+      </g>
+    );
+  };
+
+  const captions = {
+    'TOP': 'EXCESSIVE REPLAY SYNDROME',
+    'POP': 'CERTIFIED FRESH',
+    'MOP': 'NGNT | (NOT GREAT, NOT TERRIBLE)',
+    'FLOP': 'SKIP-FRIENDLY',
+    'STOP': 'COMPLETELY ARGGH'
+  };
+
+  const currentCaption = captions[dominantLabel] || 'READY FOR RUSH...';
+  const captionLines = currentCaption.split(' | ');
+
+  return (
+    <footer ref={footerRef} className="mt-12 w-full flex flex-col items-center justify-center select-none overflow-hidden mb-12 font-sans bg-black">
+      <div className="w-full bg-white/5 border-t border-x border-white/10 px-4 sm:px-10 flex flex-col items-center min-h-[620px]" style={{ clipPath: 'polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%)' }}>
+        <div className="w-full flex flex-col items-center pt-8">
+          <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={finalPieData} innerRadius={0} outerRadius="80%" dataKey="value" label={renderCustomizedLabel} labelLine={false} stroke="none" activeIndex={filteredActiveIndex} activeShape={ActiveSector}>
+                  {finalPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            {!isNAState && activeCount === 1 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 text-center">
+                <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter leading-none" style={{ color: finalPieData[0].fill }}>{finalPieData[0].name}</h2>
+                <span className="text-xl sm:text-2xl font-black text-white/80 tracking-widest mt-1">100%</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-12 mb-10 w-full flex flex-row items-center gap-4 justify-center px-4 pl-0 sm:pl-12">
+            <div className="flex flex-col items-end sm:items-start leading-tight text-right sm:text-left">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500 whitespace-nowrap">MAIN VIBE</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500 whitespace-nowrap">OF THE WEEK:</span>
+            </div>
+            <div className="flex flex-col items-start leading-[0.85]">
+              {captionLines.map((line, idx) => {
+                const isSubtext = line.includes('(');
+                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-5xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="pb-16 flex flex-col items-center w-full">
+          <span className="text-xl sm:text-2xl font-black uppercase tracking-widest mb-4" style={{ color: isNAState ? '#4B5563' : 'rgb(55, 65, 81)' }}>Week Rank</span>
+          <div className="flex flex-row items-center gap-6 sm:gap-12">
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <GradientStar percentage={100} score={avgScore} sizeClass="size-20 sm:size-32" isNA={isNAState} customGradientStops={customGradientStops} starColor={dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
+              </div>
+              {!isNAState && <span className="text-2xl sm:text-4xl font-black tracking-tighter leading-none" style={{ backgroundImage: textGradientStyle, color: customGradientStops ? 'transparent' : dominantColor, WebkitBackgroundClip: customGradientStops ? 'text' : 'border-box', backgroundClip: customGradientStops ? 'text' : 'border-box' }}>{avgScore.toFixed(2)}</span>}
+            </div>
+            <span className="text-5xl sm:text-9xl font-black uppercase tracking-tighter" style={{ backgroundImage: reverseRankLabelGradient !== 'none' ? reverseRankLabelGradient : 'none', WebkitBackgroundClip: reverseRankLabelGradient !== 'none' ? 'text' : 'border-box', backgroundClip: reverseRankLabelGradient !== 'none' ? 'text' : 'border-box', color: isNAState ? '#4B5563' : (reverseRankLabelGradient !== 'none' ? 'transparent' : dominantColor) }}>{getRankLabel(avgScore, isNAState)}</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+const FreshPackOFlow = () => {
+  const weekInfo = useMemo(() => { const { startDate, endDate } = getWeekDates(new Date()); return { weekNumber: getWeekNumber(startDate), dateRangeText: formatWeekDateRange(startDate, endDate) }; }, []);
+
+  const releasesData = useMemo(() => [
+    {title: 'Не толкайтесь!', artist: 'REDO, HUMSLEEPP', coverLink: 'https://i.ibb.co/d4WT2sST/Cover-of-by-REDO-HUMSLEEPP.jpg', score: 4.1},
+    {title: 'Саундтрек лета', artist: 'Н1GH', coverLink: 'https://i.ibb.co/0pKYSZmL/Cover-of-by-H1-GH.jpg', score: 3.0},
+    {title: 'Крапива-лебеда', artist: 'Horus, НЕВИДАЛЬ', coverLink: 'https://i.ibb.co/pjCVLbzg/Cover-of-by-Horus-Argemonia.jpg', score: 2.775},
+    {title: 'Алло', artist: 'Жак Энтони', coverLink: 'https://i.ibb.co/x8sZ8y1V/Cover-of-prod-by-timmyocean-by-Jacques-Anthony.jpg', score: 3.625},
+    {title: 'Любовь и одежда', artist: 'ray!, Джарахов', coverLink: 'https://i.ibb.co/V0SgR03f/Cover-of-by-ray-Dzharakhov.jpg', score: 4.51},
+    {title: 'MALO 2.O', artist: 'Егор Крид', coverLink: 'https://i.ibb.co/VYJTn1Js/Cover-of-Malo-2-0-by-Egor-Kreed.jpg', score: 3.625},
+    {title: 'Выше головы', artist: 'SOCRAT', coverLink: 'https://i.ibb.co/DDjWCpNT/Cover-of-by-SOCRAT.jpg', score: 4.0},
+    {title: 'ОСКАР', artist: 'ЛЕНИНГРАД', coverLink: 'https://i.ibb.co/dsxchCNT/Cover-of-by-Leningrad.jpg', score: 2.25},
+    {title: 'Кошка', artist: 'КРАВЦ, AYAYA, RENDOW', coverLink: 'https://i.ibb.co/Rp0ZrmJT/Cover-of-Remix-by-Kravz-AVAYVA-Rendow.jpg', score: 2.0},
+    {title: 'ЛЮБИ МЕНЯ, ЛЮБИ', artist: 'T-FEST', coverLink: 'https://i.ibb.co/Sw9wk3fQ/Cover-of-by-T-Fest.jpg', score: 4.86},
+    {title: 'Всё на этои', artist: 'Руки вверх!', coverLink: 'https://i.ibb.co/TB4KQNKK/Cover-of-by-Ruki-Vverh.jpg', score: 3.38},
+  ].sort((a, b) => b.score - a.score), []);
+
+  const tierBase = useMemo(() => [
+    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4bf9c2", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#d5fe70", textColorClass: "text-white" },
+    { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
+    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f1caad", textColorClass: "text-white" },
+    { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
+  ], []);
+
+  const metrics = useMemo(() => {
+    const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [] };
+    releasesData.forEach(r => grouped[getRankLabel(r.score, false)].push(r));
+    const totalW = releasesData.reduce((acc, r) => acc + (r.score + {TOP:1,POP:2,MOP:3,FLOP:4,STOP:5}[getRankLabel(r.score, false)]), 0);
+    const tierStats = tierBase.map(t => {
+      const rels = grouped[t.label], wNumerator = rels.reduce((acc, r) => acc + (r.score + {TOP:1,POP:2,MOP:3,FLOP:4,STOP:5}[t.label]), 0);
+      return { label: t.label, ratio: totalW > 0 ? wNumerator / totalW : 0, val: wNumerator, avg: rels.length ? rels.reduce((a, b) => a + b.score, 0) / rels.length : 0 };
+    });
+    const compColors = {};
+    tierStats.forEach(s => compColors[s.label] = getAdvancedTierColor(s.avg, s.label, s.ratio));
+    const dominant = tierStats.reduce((p, c) => c.val > p.val ? c : p, { val: -1 });
+    return { grouped, colors: compColors, ratios: tierStats.reduce((a, s) => ({...a, [s.label]: s.ratio}), {}), pie: tierStats.map(s => ({ name: s.label, value: s.val, color: compColors[s.label] })), dominant, avg: releasesData.reduce((a, b) => a + b.score, 0) / releasesData.length };
+  }, [releasesData, tierBase]);
+
+  return (
+    <div className="min-h-screen bg-black text-white p-4 sm:p-8 font-sans">
+      <div className="max-w-5xl mx-auto">
+        <Header {...weekInfo} />
+        <main className="space-y-4">
+          {tierBase.map(t => <TierRow key={t.label} {...t} releases={metrics.grouped[t.label]} tierRatio={metrics.ratios[t.label]} computedColor={metrics.colors[t.label]} />)}
+        </main>
+        <MusicRankingFooter avgScore={metrics.avg} isNAState={!releasesData.length} pieData={metrics.pie} dominantLabel={metrics.dominant.label} dominantColor={metrics.colors[metrics.dominant.label]} tierBase={tierBase} tierStats={Object.entries(metrics.ratios).map(([label, ratio]) => ({ label, ratio, computedColor: metrics.colors[label] }))} />
+      </div>
+    </div>
+  );
+};
+
+export default FreshPackOFlow;
