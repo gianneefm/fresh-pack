@@ -416,7 +416,7 @@ const FreshPackOFlow = () => {
   const weekInfo = useMemo(() => { const { startDate, endDate } = getWeekDates(new Date()); return { weekNumber: getWeekNumber(startDate), dateRangeText: formatWeekDateRange(startDate, endDate) }; }, []);
 
   const releasesData = useMemo(() => [
-    {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: '', score: 5},
+    {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: 'https://github.com/gianneefm/fresh-pack/blob/main/src/assets/OG-Buda_Andrei-Katikov_Babki_cover-art.png', score: 5},
     {title: '', artist: '', coverLink: '', score: 0},
     {title: '', artist: '', coverLink: '', score: 0},
     {title: '', artist: '', coverLink: '', score: 0},
