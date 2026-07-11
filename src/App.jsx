@@ -190,7 +190,13 @@ const Header = ({ weekNumber, dateRangeText }) => {
   return (
     <header ref={ref} className="flex flex-col items-center mb-10 text-center select-none pb-4 font-sans relative">
       <div className="absolute inset-0 z-50 opacity-0 cursor-pointer" onClick={() => exportElement(ref, 'Header')} />
-      <h1 className="font-black tracking-tighter uppercase bg-clip-text text-transparent leading-[1.2] px-8" style={{ backgroundImage: 'linear-gradient(to right, #059669, #7d9a3a, #f59e0b, #ea580c, #b91c1c)', WebkitBackgroundClip: 'text', backgroundClip: 'text', fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' }}>FRESH PACK O'FLOW</h1>
+      <h1 className="font-black tracking-tighter uppercase bg-clip-text text-transparent leading-[1.2] px-8" style={{ 
+          backgroundImage: 'linear-gradient(to right, #059669, #7d9a3a, #f59e0b, #ea580c, #b91c1c)', 
+          whiteSpace: 'nowrap',
+          WebkitBackgroundClip: 'text', 
+          backgroundClip: 'text', 
+          fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' 
+        }}>FRESH PACK O'FLOW</h1>
       <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">{dateRangeText}</p>
       <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK {weekNumber}</p>
     </header>
