@@ -179,7 +179,7 @@ const ReleaseItem = ({ title, artist, score, coverLink }) => {
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
       <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
         <h3 className="text-white text-[10px] sm:text-[12px] font-extrabold tracking-tight leading-tight w-full break-words uppercase">{title}</h3>
-        <p className="text-white/80 text-[8px] sm:text-[10px] font-medium leading-tight mt-1 w-full break-words">{artist}</p>
+        <p className="text-white/80 text-[8px] sm:text-[10px] font-medium leading-tight mt-1 w-full break-words uppercase">{artist}</p>
       </div>
     </div>
   );
@@ -417,39 +417,17 @@ const FreshPackOFlow = () => {
 
   const releasesData = useMemo(() => [
     {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: 'https://github.com/gianneefm/fresh-pack/blob/main/src/assets/OG-Buda_Andrei-Katikov_Babki_cover-art.png', score: 5},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0},
-    {title: '', artist: '', coverLink: '', score: 0}
-  ].sort((a, b) => b.score - a.score), []);
+    {title: 'Взрослеем', artist: 'Illumate, Niki L', coverLink: '', score: 2.36},
+    {title: 'Feestje Op Mijn Graf', artist: 'The Opposites', coverLink: '', score: 5},
+    {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: '', score: 3.5},
+    {title: 'SURF & TURF (64 BARS))', artist: 'KOOL SAVAS', coverLink: '', score: 4.8},
+    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКРО', coverLink: '', score: 4.37},
+    {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: '', score: 2.905},
+    {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: '', score: 4.67},
+    {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: '', score: 3.97},
+    {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: '', score: 3.96},
+    {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: '', score: 3.88},
+   ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
     { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4bf9c2", textColorClass: "text-white" },
