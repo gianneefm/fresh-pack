@@ -3,19 +3,17 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # Скрипт сработает при пуше в ветку main
+      - main
 
 permissions:
-  contents: write  # Нужно для записи в ветку gh-pages
-  pages: write     # Нужно для управления настройками Pages
-  id-token: write  # Нужно для подтверждения личности в GitHub
+  contents: write
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -25,18 +23,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        # Используем npm ci для стабильности, если есть lock-файл
-        run: npm ci || npm install
+        run: npm install
 
-      - name: Build project
+      - name: Build
         run: npm run build
-        env:
-          CI: false
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist 
-          publish_branch: gh-pages
-          force_orphan: true
+          publish_dir: ./dist
