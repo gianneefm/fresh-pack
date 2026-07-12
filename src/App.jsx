@@ -546,9 +546,6 @@ const FreshPackOFlow = () => {
     {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
     {title: 'предиктор', artist: 'Тёмный принц, SALUKI' , coverLink: 'https://i.ibb.co/RnggnJS/Cover-of-by-SALUKI.jpg', score: 4.715},
     {title: 'Не было нас', artist: 'ТЕППО' , coverLink: 'https://i.ibb.co/prPwp6mM/Cover-of-by.jpg', score: 3.75}
-
-    {title: 'The Real Me', artist: 'Future', coverLink: 'https://i.ibb.co/HDnnQNV5/https-images-genius-com-1aae9c20ef7c9ee7056da0d89612eec6-1000x1000x1.png', score: 3.55}
-
    ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
