@@ -53,6 +53,102 @@ const formatWeekDateRange = (startDate, endDate) => {
   return `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${endDate.getFullYear()}`;
 };
 
+const hexToRgb = (hex) => {
+  const normalized = hex.replace('#', '');
+  const full =
+    normalized.length === 3
+      ? normalized.split('').map((char) => char + char).join('')
+      : normalized;
+
+  const int = parseInt(full, 16);
+
+  return {
+    r: (int >> 16) & 255,
+    g: (int >> 8) & 255,
+    b: int & 255,
+  };
+};
+
+const hexToHsl = (hex) => {
+  const { r, g, b } = hexToRgb(hex);
+
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+
+  let h = 0;
+  let s = 0;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case rn:
+        h = (gn - bn) / d + (gn < bn ? 6 : 0);
+        break;
+      case gn:
+        h = (bn - rn) / d + 2;
+        break;
+      default:
+        h = (rn - gn) / d + 4;
+        break;
+    }
+
+    h *= 60;
+  }
+
+  return {
+    h,
+    s: s * 100,
+    l: l * 100,
+  };
+};
+
+const hslToHex = (h, s, l) => {
+  const sn = s / 100;
+  const ln = l / 100;
+
+  const c = (1 - Math.abs(2 * ln - 1)) * sn;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = ln - c / 2;
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (h >= 0 && h < 60) [r1, g1, b1] = [c, x, 0];
+  else if (h < 120) [r1, g1, b1] = [x, c, 0];
+  else if (h < 180) [r1, g1, b1] = [0, c, x];
+  else if (h < 240) [r1, g1, b1] = [0, x, c];
+  else if (h < 300) [r1, g1, b1] = [x, 0, c];
+  else [r1, g1, b1] = [c, 0, x];
+
+  const toHex = (value) =>
+    Math.round((value + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+
+  return `#${toHex(r1)}${toHex(g1)}${toHex(b1)}`;
+};
+
+const getTierFooterColor = (rowBgColor, headerBgColor, tierCount, totalCount) => {
+  const rowHsl = hexToHsl(rowBgColor);
+  const headerHsl = hexToHsl(headerBgColor);
+
+  const factor =
+    totalCount > 0 ? Math.max(0, Math.min(1, tierCount / totalCount)) : 0;
+
+  const saturation =
+    rowHsl.s + (headerHsl.s - rowHsl.s) * factor;
+
+  return hslToHex(headerHsl.h, saturation, headerHsl.l);
+};
+
 const interpolateColor = (color1, color2, factor) => {
   const r1 = parseInt(color1.substring(1, 3), 16);
   const g1 = parseInt(color1.substring(3, 5), 16);
@@ -115,8 +211,7 @@ const ActiveSector = (props) => {
 const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, customGradientStops = null, starColor, onStarClick }) => {
   const uniqueId = useId().replace(/:/g, "");
   const fillPercent = Math.max(0, Math.min(100, percentage));
-  const activeColor = isNA ? '#4B5563' : (starColor || getDynamicColor(score));
-  const { starPath, facets } = useMemo(() => {
+const activeColor = starColor || (isNA ? '#4B5563' : getDynamicColor(score));  const { starPath, facets } = useMemo(() => {
     const pts = [];
     for (let i = 0; i < 10; i++) {
       const a = (i * Math.PI) / 5 - Math.PI / 2;
@@ -151,12 +246,33 @@ const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, c
 
 const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor }) => {
   const ref = useRef(null);
+  const footerStarPercentage = isNAState ? 100 : tierRatio * 100;
+
   return (
-    <div ref={ref} className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans">
-      <div className="flex-shrink-0 font-bold text-white/90">{labelText}</div>
+    <div
+      ref={ref}
+      className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans"
+    >
+      <div className="flex-shrink-0 font-bold">
+        {labelText}
+      </div>
+
       <div className="flex flex-col items-center gap-1">
-        <GradientStar percentage={tierRatio * 100} score={avgScore} sizeClass="size-10 sm:size-12" isNA={isNAState} starColor={computedColor} onStarClick={() => exportElement(ref, `Footer-${tierLabel}`)} />
-        {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
+        <GradientStar
+          percentage={footerStarPercentage}
+          score={avgScore}
+          sizeClass="size-10 sm:size-12"
+          isNA={false}
+          starColor={computedColor}
+          onStarClick={() => exportElement(ref, `Footer-${tierLabel}`)}
+        />
+
+        <span
+          className="font-sans text-base sm:text-lg font-black tracking-tighter"
+          style={{ color: computedColor }}
+        >
+                  {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
+        </span>
       </div>
     </div>
   );
@@ -245,12 +361,11 @@ const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, relea
         tierLabel={label} 
         computedColor={computedColor} 
         labelText={
-          <div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight">
-            <span style={{ color: computedColor }}>{label}</span>
-            <span className="text-gray-400">RATIO</span>
-          </div>
-        } 
-      />
+  <div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight">
+    <span style={{ color: computedColor }}>{label}</span>
+    <span className="text-gray-400">RATIO</span>
+  </div>
+}      />
     </section>
   );
 };
@@ -427,6 +542,7 @@ const FreshPackOFlow = () => {
     {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: '', score: 3.97},
     {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: '', score: 3.96},
     {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: '', score: 3.88},
+        {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: '', score: 3.675}
    ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
@@ -437,20 +553,71 @@ const FreshPackOFlow = () => {
     { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
   ], []);
 
-  const metrics = useMemo(() => {
-    const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [] };
-    releasesData.forEach(r => grouped[getRankLabel(r.score, false)].push(r));
-    const totalW = releasesData.reduce((acc, r) => acc + (r.score + {TOP:1,POP:2,MOP:3,FLOP:4,STOP:5}[getRankLabel(r.score, false)]), 0);
-    const tierStats = tierBase.map(t => {
-      const rels = grouped[t.label], wNumerator = rels.reduce((acc, r) => acc + (r.score + {TOP:1,POP:2,MOP:3,FLOP:4,STOP:5}[t.label]), 0);
-      return { label: t.label, ratio: totalW > 0 ? wNumerator / totalW : 0, val: wNumerator, avg: rels.length ? rels.reduce((a, b) => a + b.score, 0) / rels.length : 0 };
-    });
-    const compColors = {};
-    tierStats.forEach(s => compColors[s.label] = getAdvancedTierColor(s.avg, s.label, s.ratio));
-    const dominant = tierStats.reduce((p, c) => c.val > p.val ? c : p, { val: -1 });
-    return { grouped, colors: compColors, ratios: tierStats.reduce((a, s) => ({...a, [s.label]: s.ratio}), {}), pie: tierStats.map(s => ({ name: s.label, value: s.val, color: compColors[s.label] })), dominant, avg: releasesData.reduce((a, b) => a + b.score, 0) / releasesData.length };
-  }, [releasesData, tierBase]);
+const metrics = useMemo(() => {
+  const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [] };
 
+  releasesData.forEach((r) => grouped[getRankLabel(r.score, false)].push(r));
+
+  const totalW = releasesData.reduce(
+    (acc, r) =>
+      acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[getRankLabel(r.score, false)]),
+    0
+  );
+
+  const totalReleases = releasesData.length;
+
+  const tierStats = tierBase.map((t) => {
+    const rels = grouped[t.label];
+    const count = rels.length;
+
+    const wNumerator = rels.reduce(
+      (acc, r) => acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[t.label]),
+      0
+    );
+
+    const ratio = totalW > 0 ? wNumerator / totalW : 0;
+    const avg = count ? rels.reduce((a, b) => a + b.score, 0) / count : 0;
+
+    const computedColor = getTierFooterColor(
+      t.rowBgColor,
+      t.bgColor,
+      count,
+      totalReleases
+    );
+
+    return {
+      label: t.label,
+      ratio,
+      val: wNumerator,
+      avg,
+      count,
+      computedColor,
+    };
+  });
+
+  const compColors = {};
+  tierStats.forEach((s) => {
+    compColors[s.label] = s.computedColor;
+  });
+
+  const dominant = tierStats.reduce((p, c) => (c.val > p.val ? c : p), { val: -1 });
+
+  return {
+    grouped,
+    colors: compColors,
+    ratios: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.ratio }), {}),
+    pie: tierStats.map((s) => ({
+      name: s.label,
+      value: s.val,
+      color: s.computedColor,
+    })),
+    dominant,
+    avg: releasesData.length
+      ? releasesData.reduce((a, b) => a + b.score, 0) / releasesData.length
+      : 0,
+    tierStats,
+  };
+}, [releasesData, tierBase]);
   return (
     <div className="min-h-screen bg-black text-white p-4 sm:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -458,8 +625,15 @@ const FreshPackOFlow = () => {
         <main className="space-y-4">
           {tierBase.map(t => <TierRow key={t.label} {...t} releases={metrics.grouped[t.label]} tierRatio={metrics.ratios[t.label]} computedColor={metrics.colors[t.label]} />)}
         </main>
-        <MusicRankingFooter avgScore={metrics.avg} isNAState={!releasesData.length} pieData={metrics.pie} dominantLabel={metrics.dominant.label} dominantColor={metrics.colors[metrics.dominant.label]} tierBase={tierBase} tierStats={Object.entries(metrics.ratios).map(([label, ratio]) => ({ label, ratio, computedColor: metrics.colors[label] }))} />
-      </div>
+        <MusicRankingFooter
+  avgScore={metrics.avg}
+  isNAState={!releasesData.length}
+  pieData={metrics.pie}
+  dominantLabel={metrics.dominant.label}
+  dominantColor={metrics.colors[metrics.dominant.label]}
+  tierBase={tierBase}
+  tierStats={metrics.tierStats}
+/>      </div>
     </div>
   );
 };
