@@ -537,14 +537,18 @@ const FreshPackOFlow = () => {
     {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: 'https://i.ibb.co/kghsd6Dt/Cover-of-by-Kravz.jpg', score: 3.5},
     {title: 'SURF & TURF (64 BARS))', artist: 'KOOL SAVAS', coverLink: 'https://i.ibb.co/DDbvZfJM/Cover-of-SURF-TURF-RED-BULL-64-BARS-by-Kool-Savas-Jumpa.jpg', score: 4.8},
     {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКРО', coverLink: 'https://i.ibb.co/fdMWTGmw/Cover-of-by.jpg', score: 4.37},
-    {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: '', score: 2.905},
-    {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: '', score: 4.67},
-    {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: '', score: 3.97},
+    {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: 'https://i.ibb.co/dhQvbX6/Cover-of-by-Yanix.jpg', score: 2.905},
+    {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: 'https://i.ibb.co/JWqjVCy1/Cover-of-2026-by-Basta-GUF.jpg', score: 4.67},
+    {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: 'https://i.ibb.co/7dscH67C/Cover-of-by-SEREBRO.jpg', score: 3.97},
     {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: 'https://i.ibb.co/kVqdRF2b/Cover-of-by.jpg', score: 3.96},
     {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: 'https://i.ibb.co/k7j0YRt/Cover-of-by-5sta-Family-Fargo.jpg', score: 3.88},
     {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: 'https://i.ibb.co/Xf4sd691/Cover-of-by-Ruki-Vverh.jpg', score: 3.675},
     {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
+    {title: 'предиктор', artist: 'Тёмный принц, SALUKI' , coverLink: 'https://i.ibb.co/RnggnJS/Cover-of-by-SALUKI.jpg', score: 4.715},
+    {title: 'Не было нас', artist: 'ТЕППО' , coverLink: 'https://i.ibb.co/prPwp6mM/Cover-of-by.jpg', score: 3.75}
+
     {title: 'The Real Me', artist: 'Future', coverLink: 'https://i.ibb.co/HDnnQNV5/https-images-genius-com-1aae9c20ef7c9ee7056da0d89612eec6-1000x1000x1.png', score: 3.55}
+
    ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
