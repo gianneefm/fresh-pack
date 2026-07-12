@@ -531,18 +531,20 @@ const FreshPackOFlow = () => {
   const weekInfo = useMemo(() => { const { startDate, endDate } = getWeekDates(new Date()); return { weekNumber: getWeekNumber(startDate), dateRangeText: formatWeekDateRange(startDate, endDate) }; }, []);
 
   const releasesData = useMemo(() => [
-    {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: 'https://github.com/gianneefm/fresh-pack/blob/main/src/assets/OG-Buda_Andrei-Katikov_Babki_cover-art.png', score: 5},
-    {title: 'Взрослеем', artist: 'Illumate, Niki L', coverLink: '', score: 2.36},
-    {title: 'Feestje Op Mijn Graf', artist: 'The Opposites', coverLink: '', score: 5},
-    {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: '', score: 3.5},
-    {title: 'SURF & TURF (64 BARS))', artist: 'KOOL SAVAS', coverLink: '', score: 4.8},
-    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКРО', coverLink: '', score: 4.37},
+    {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: 'https://i.ibb.co/BHV1D5x9/OG-Buda-Andrei-Katikov-Babki-cover-art.png', score: 5},
+    {title: 'Взрослеем', artist: 'Illumate, Niki L', coverLink: 'https://i.ibb.co/NhDf4r7/Cover-of-by-NIKI-L-Illumate-ayomarkiz.jpg', score: 2.36},
+    {title: 'Feestje Op Mijn Graf', artist: 'The Opposites', coverLink: 'https://i.ibb.co/tMNdh6fd/Cover-of-Feestje-Op-Mijn-Graf-by-The-Opposites.jpg', score: 5},
+    {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: 'https://i.ibb.co/kghsd6Dt/Cover-of-by-Kravz.jpg', score: 3.5},
+    {title: 'SURF & TURF (64 BARS))', artist: 'KOOL SAVAS', coverLink: 'https://i.ibb.co/DDbvZfJM/Cover-of-SURF-TURF-RED-BULL-64-BARS-by-Kool-Savas-Jumpa.jpg', score: 4.8},
+    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКРО', coverLink: 'https://i.ibb.co/fdMWTGmw/Cover-of-by.jpg', score: 4.37},
     {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: '', score: 2.905},
     {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: '', score: 4.67},
     {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: '', score: 3.97},
-    {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: '', score: 3.96},
-    {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: '', score: 3.88},
-        {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: '', score: 3.675}
+    {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: 'https://i.ibb.co/kVqdRF2b/Cover-of-by.jpg', score: 3.96},
+    {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: 'https://i.ibb.co/k7j0YRt/Cover-of-by-5sta-Family-Fargo.jpg', score: 3.88},
+    {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: 'https://i.ibb.co/Xf4sd691/Cover-of-by-Ruki-Vverh.jpg', score: 3.675},
+    {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
+    {title: 'The Real Me', artist: 'Future', coverLink: 'https://i.ibb.co/HDnnQNV5/https-images-genius-com-1aae9c20ef7c9ee7056da0d89612eec6-1000x1000x1.png', score: 3.55}
    ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
