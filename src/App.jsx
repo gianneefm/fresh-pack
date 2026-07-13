@@ -505,7 +505,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
             <div className="flex flex-col items-start leading-[0.85]">
               {captionLines.map((line, idx) => {
                 const isSubtext = line.includes('(');
-                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-4xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
+                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-3xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
               })}
             </div>
           </div>
