@@ -505,7 +505,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
             <div className="flex flex-col items-start leading-[0.85]">
               {captionLines.map((line, idx) => {
                 const isSubtext = line.includes('(');
-                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-5xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
+                return <span key={idx} className={`font-black uppext-3xl sm:text-3xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
               })}
             </div>
           </div>
@@ -545,7 +545,8 @@ const FreshPackOFlow = () => {
     {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: 'https://i.ibb.co/Xf4sd691/Cover-of-by-Ruki-Vverh.jpg', score: 3.675},
     {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
     {title: 'предиктор', artist: 'Тёмный принц, SALUKI' , coverLink: 'https://i.ibb.co/RnggnJS/Cover-of-by-SALUKI.jpg', score: 4.715},
-    {title: 'Не было нас', artist: 'ТЕППО' , coverLink: 'https://i.ibb.co/prPwp6mM/Cover-of-by.jpg', score: 3.75}
+    {title: 'Не было нас', artist: 'ТЕППО' , coverLink: 'https://i.ibb.co/prPwp6mM/Cover-of-by.jpg', score: 3.75},
+    {title: 'Лета дочь', artist: 'Наташа Королёва' , coverLink: 'https://i.ibb.co/mF9DP8Zb/Cover-of-by-Natasha-Korolyova-1.jpg', score: 4.73},
    ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
