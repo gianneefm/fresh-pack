@@ -47,10 +47,11 @@ const formatWeekDateRange = (startDate, endDate) => {
   const options = { month: 'short', day: 'numeric' };
   const startMonth = startDate.toLocaleDateString('en-US', { ...options, month: 'short' });
   const endMonth = endDate.toLocaleDateString('en-US', { ...options, month: 'short' });
+  const year = endDate.getFullYear();
   if (startDate.getMonth() === endDate.getMonth()) {
-    return `${startMonth} ${startDate.getDate()} – ${endDate.getDate()}, ${endDate.getFullYear()}`;
+    return `${startMonth} ${startDate.getDate()} – ${endDate.getDate()}, ${year}`;
   }
-  return `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+  return `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${year}`;
 };
 
 const hexToRgb = (hex) => {
@@ -535,12 +536,13 @@ const FreshPackOFlow = () => {
     {title: 'Взрослеем', artist: 'Illumate, Niki L', coverLink: 'https://i.ibb.co/NhDf4r7/Cover-of-by-NIKI-L-Illumate-ayomarkiz.jpg', score: 2.36},
     {title: 'Feestje Op Mijn Graf', artist: 'The Opposites', coverLink: 'https://i.ibb.co/tMNdh6fd/Cover-of-Feestje-Op-Mijn-Graf-by-The-Opposites.jpg', score: 5},
     {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: 'https://i.ibb.co/kghsd6Dt/Cover-of-by-Kravz.jpg', score: 3.5},
-    {title: 'SURF & TURF (64 BARS))', artist: 'KOOL SAVAS', coverLink: 'https://i.ibb.co/DDbvZfJM/Cover-of-SURF-TURF-RED-BULL-64-BARS-by-Kool-Savas-Jumpa.jpg', score: 4.8},
-    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКРО', coverLink: 'https://i.ibb.co/fdMWTGmw/Cover-of-by.jpg', score: 4.37},
+    {title: 'SURF & TURF (64 BARS)', artist: 'KOOL SAVAS', coverLink: 'https://i.ibb.co/DDbvZfJM/Cover-of-SURF-TURF-RED-BULL-64-BARS-by-Kool-Savas-Jumpa.jpg', score: 4.8},
+    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКО', coverLink: 'https://i.ibb.co/fdMWTGmw/Cover-of-by.jpg', score: 4.37},
     {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: 'https://i.ibb.co/dhQvbX6/Cover-of-by-Yanix.jpg', score: 2.905},
     {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: 'https://i.ibb.co/JWqjVCy1/Cover-of-2026-by-Basta-GUF.jpg', score: 4.67},
     {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: 'https://i.ibb.co/7dscH67C/Cover-of-by-SEREBRO.jpg', score: 3.97},
-    {title: 'ПОВОД', artist: 'ТРМ ДНЯ ДОЖДЯ', coverLink: 'https://i.ibb.co/kVqdRF2b/Cover-of-by.jpg', score: 3.96},
+    {title: 'ПОВОД', artist: 'ТРИ ДНЯ ДОЖДЯ', coverLink: 'https://i.ibb.co/kVqdRF2b/Cover-of-by.jpg', score: 3.96},
+        {title: 'ПРОВОЛОКА', artist: 'PIZZA', coverLink: '', score: 4.7},
     {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: 'https://i.ibb.co/k7j0YRt/Cover-of-by-5sta-Family-Fargo.jpg', score: 3.88},
     {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: 'https://i.ibb.co/Xf4sd691/Cover-of-by-Ruki-Vverh.jpg', score: 3.675},
     {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
