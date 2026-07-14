@@ -144,10 +144,14 @@ const getTierFooterColor = (rowBgColor, headerBgColor, tierCount, totalCount) =>
   const factor =
     totalCount > 0 ? Math.max(0, Math.min(1, tierCount / totalCount)) : 0;
 
-  const saturation =
-    rowHsl.s + (headerHsl.s - rowHsl.s) * factor;
+  // Интерполяция насыщенности (как и было)
+  const saturation = rowHsl.s + (headerHsl.s - rowHsl.s) * factor;
+  
+  // Новое: Интерполяция яркости по тому же принципу
+  const lightness = rowHsl.l + (headerHsl.l - rowHsl.l) * factor;
 
-  return hslToHex(headerHsl.h, saturation, headerHsl.l);
+  // Тон (Hue) обычно остается от заголовка, чтобы сохранить "цвет" категории
+  return hslToHex(headerHsl.h, saturation, lightness);
 };
 
 const interpolateColor = (color1, color2, factor) => {
@@ -279,7 +283,7 @@ const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, comp
   );
 };
 
-const ReleaseItem = ({ title, artist, score, coverLink }) => {
+const ReleaseItem = ({ title, artist, scores = {artistry, skills, arrangement, production, lyrics, frisson, repeat}, coverLink }) => {
   const color = useMemo(() => {
     const t = score >= 4.25 ? 'TOP' : score >= 3.75 ? 'POP' : score >= 2.5 ? 'MOP' : score >= 1.0 ? 'FLOP' : 'STOP';
     const conf = { TOP: [4.25, 5.0, '#059669', '#059669', '#7D9A3A'], POP: [3.75, 4.25, '#059669', '#7D9A3A', '#F59E0B'], MOP: [2.5, 3.75, '#7D9A3A', '#F59E0B', '#EA580C'], FLOP: [1.0, 2.5, '#F59E0B', '#EA580C', '#B91C1C'], STOP: [0.0, 1.0, '#EA580C', '#B91C1C', '#B91C1C'] }[t];
@@ -287,11 +291,13 @@ const ReleaseItem = ({ title, artist, score, coverLink }) => {
     return score > mid ? interpolateColor(conf[3], conf[2], (score - mid) / (conf[1] - mid)) : interpolateColor(conf[3], conf[4], (mid - score) / (mid - conf[0]));
   }, [score]);
 
+  const {artistry, skills, arrangement, production, lyrics, frisson, repeat} = scores;
+  const scoreSum = artistry + skills + arrangement + production + frisson + repeat;
   return (
     <div className="relative group w-full aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans">
       <img src={coverLink} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute top-0 right-0 bg-black px-2 py-1 rounded-tr-xl rounded-bl-md shadow-xl z-20 border-l border-b border-white/10 min-w-[28px] text-center">
-        <span className="font-sans text-[9px] sm:text-[10px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(2)}</span>
+        <span className="font-sans text-[9px] sm:text-[10px] font-extrabold tracking-tighter" style={{ color }}>{(scoreSum / 200).toFixed(2)}</span>
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
       <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
@@ -314,8 +320,8 @@ const Header = ({ weekNumber, dateRangeText }) => {
           backgroundClip: 'text', 
           fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' 
         }}>FRESH PACK O'FLOW</h1>
-      <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">Jul 6 – 12, 2026</p>
-      <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK 28</p>
+      <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">{dateRangeText}</p>
+      <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK {weekNumber}</p>
     </header>
   );
 };
@@ -532,31 +538,14 @@ const FreshPackOFlow = () => {
   const weekInfo = useMemo(() => { const { startDate, endDate } = getWeekDates(new Date()); return { weekNumber: getWeekNumber(startDate), dateRangeText: formatWeekDateRange(startDate, endDate) }; }, []);
 
   const releasesData = useMemo(() => [
-    {title: 'Бабки', artist: 'Андрей Катиков, OG Buda', coverLink: 'https://i.ibb.co/BHV1D5x9/OG-Buda-Andrei-Katikov-Babki-cover-art.png', score: 5},
-    {title: 'Взрослеем', artist: 'Illumate, Niki L', coverLink: 'https://i.ibb.co/NhDf4r7/Cover-of-by-NIKI-L-Illumate-ayomarkiz.jpg', score: 2.36},
-    {title: 'Feestje Op Mijn Graf', artist: 'The Opposites', coverLink: 'https://i.ibb.co/tMNdh6fd/Cover-of-Feestje-Op-Mijn-Graf-by-The-Opposites.jpg', score: 5},
-    {title: 'Лето-жара', artist: 'Кравц, Семён Рудницкий', coverLink: 'https://i.ibb.co/kghsd6Dt/Cover-of-by-Kravz.jpg', score: 3.5},
-    {title: 'SURF & TURF (64 BARS)', artist: 'KOOL SAVAS', coverLink: 'https://i.ibb.co/DDbvZfJM/Cover-of-SURF-TURF-RED-BULL-64-BARS-by-Kool-Savas-Jumpa.jpg', score: 4.8},
-    {title: 'НЕДОСТУПНА', artist: 'ВАНЯ ДМИТРИЕНКО', coverLink: 'https://i.ibb.co/fdMWTGmw/Cover-of-by.jpg', score: 4.37},
-    {title: 'ШИПЫ И РОЗЫ', artist: 'YANIX', coverLink: 'https://i.ibb.co/dhQvbX6/Cover-of-by-Yanix.jpg', score: 2.905},
-    {title: 'ЛУЖНИКИ 2026', artist: 'БАСТА, GUF', coverLink: 'https://i.ibb.co/JWqjVCy1/Cover-of-2026-by-Basta-GUF.jpg', score: 4.67},
-    {title: 'СМОТРИ, НО НЕ ТРОГАЙ', artist: 'SEREBRO', coverLink: 'https://i.ibb.co/7dscH67C/Cover-of-by-SEREBRO.jpg', score: 3.97},
-    {title: 'ПОВОД', artist: 'ТРИ ДНЯ ДОЖДЯ', coverLink: 'https://i.ibb.co/kVqdRF2b/Cover-of-by.jpg', score: 3.96},
-    {title: 'ПРОВОЛОКА', artist: 'PIZZA', coverLink: 'https://i.ibb.co/nqdrHjCg/Cover-of-by-PIZZA.jpg', score: 4.7},
-    {title: 'ПЕРЕМОТАЙ', artist: '5STA FAMILY', coverLink: 'https://i.ibb.co/k7j0YRt/Cover-of-by-5sta-Family-Fargo.jpg', score: 3.88},
-    {title: 'ИЗМЕННИЦА', artist: 'РУКИ ВВЕРХ!', coverLink: 'https://i.ibb.co/Xf4sd691/Cover-of-by-Ruki-Vverh.jpg', score: 3.675},
-    {title: 'МНЕ ПРОТИВНО ЭТО ЛЕТО', artist: 'Mirèle', coverLink: 'https://i.ibb.co/7Jc0LHCx/Cover-of-by-Mir-le.jpg', score: 4.94},
-        {title: 'THE REAL ME', artist: 'FUTURE', coverLink: 'https://i.ibb.co/5WrmZy6k/https-images-genius-com-1aae9c20ef7c9ee7056da0d89612eec6-1000x1000x1.png', score: 3.3},
-    {title: 'предиктор', artist: 'Тёмный принц, SALUKI' , coverLink: 'https://i.ibb.co/RnggnJS/Cover-of-by-SALUKI.jpg', score: 4.715},
-    {title: 'Не было нас', artist: 'ТЕППО' , coverLink: 'https://i.ibb.co/prPwp6mM/Cover-of-by.jpg', score: 3.75},
-    {title: 'Лета дочь', artist: 'Наташа Королёва' , coverLink: 'https://i.ibb.co/mF9DP8Zb/Cover-of-by-Natasha-Korolyova-1.jpg', score: 4.73},
-   ].sort((a, b) => b.score - a.score), []);
+    {title: '',artist: '', coverLink: '', scores: {artistry: 0, skills: 0, arrangement: 0, production: 0, lyrics: 0, frisson: 0, repeat: 0}}
+  ].sort((a, b) => b.score - a.score), []);
 
   const tierBase = useMemo(() => [
     { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4bf9c2", textColorClass: "text-white" },
     { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#d5fe70", textColorClass: "text-white" },
     { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
-    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f1caad", textColorClass: "text-white" },
+    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", textColorClass: "text-white" },
     { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
   ], []);
 
