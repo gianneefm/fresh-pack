@@ -44,7 +44,7 @@ const getWeekDates = (date) => {
 };
 
 const formatWeekDateRange = (startDate, endDate) => {
-  const options = { month: 'short', day: 'numeric' };
+  const options = { month: 'short' };
   const startMonth = startDate.toLocaleDateString('en-US', { ...options, month: 'short' });
   const endMonth = endDate.toLocaleDateString('en-US', { ...options, month: 'short' });
   const year = endDate.getFullYear();
@@ -314,8 +314,8 @@ const Header = ({ weekNumber, dateRangeText }) => {
           backgroundClip: 'text', 
           fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' 
         }}>FRESH PACK O'FLOW</h1>
-      <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">{dateRangeText}</p>
-      <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK {weekNumber}</p>
+      <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">Jul 6 – 12, 2026</p>
+      <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK 28</p>
     </header>
   );
 };
