@@ -516,8 +516,8 @@ const FreshPackOFlow = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4bf9c2", textColorClass: "text-white" },
-    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#d5fe70", textColorClass: "text-white" },
+    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", textColorClass: "text-white" },
     { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
     { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", textColorClass: "text-white" },
     { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
