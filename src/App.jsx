@@ -234,7 +234,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
     <div onClick={onClick} className="relative group w-full aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans cursor-pointer">
       <img src={coverLink || 'https://via.placeholder.com/300?text=NO+IMAGE'} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute top-0 right-0 bg-black px-2 py-1 rounded-tr-xl rounded-bl-md z-20 border-l border-b border-white/10 min-w-[28px] text-center">
-        <span className="font-sans text-[9px] font-extrabold tracking-tighter" style={{ color }}>{(score / 200).toFixed(2)}</span>
+        <span className="font-sans text-[9px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(2)}</span>
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
       <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
