@@ -49,12 +49,119 @@ const formatWeekDateRange = (startDate, endDate) => {
     : `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${year}`;
 };
 
+
 const hexToRgb = (hex) => {
   const normalized = hex.replace('#', '');
   const full = normalized.length === 3 ? normalized.split('').map((char) => char + char).join('') : normalized;
   const int = parseInt(full, 16);
   return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
 };
+
+const STORAGE_KEY = 'fresh_pack_session';
+
+const isValidWeekNumber = (value) => Number.isInteger(value) && value >= 1 && value <= 53;
+const isValidWeekYear = (value) => Number.isInteger(value) && value >= 2000 && value <= 2100;
+
+const getWeekYear = (date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  return d.getUTCFullYear();
+};
+
+const getDatesFromWeekNumber = (weekNumber, year) => {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+
+  const mondayOfWeek1 = new Date(jan4);
+  mondayOfWeek1.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+
+  const startUTC = new Date(mondayOfWeek1);
+  startUTC.setUTCDate(mondayOfWeek1.getUTCDate() + (weekNumber - 1) * 7);
+
+  const endUTC = new Date(startUTC);
+  endUTC.setUTCDate(startUTC.getUTCDate() + 6);
+
+  return {
+    startDate: new Date(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), startUTC.getUTCDate()),
+    endDate: new Date(endUTC.getUTCFullYear(), endUTC.getUTCMonth(), endUTC.getUTCDate()),
+  };
+};
+
+const getCurrentWeekInfo = () => {
+  const now = new Date();
+  return {
+    weekNumber: getWeekNumber(now),
+    weekYear: getWeekYear(now),
+  };
+};
+
+const normalizeRelease = (item) => ({
+  title: typeof item?.title === 'string' ? item.title : '',
+  artist: typeof item?.artist === 'string' ? item.artist : '',
+  coverLink: typeof item?.coverLink === 'string' ? item.coverLink : '',
+  score: Math.max(0, Math.min(5, Number(item?.score) || 0)),
+});
+
+const sanitizeReleases = (items) => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map(normalizeRelease)
+    .filter(item => item.title && item.artist)
+    .sort((a, b) => b.score - a.score);
+};
+
+const downloadJsonFile = (data, fileName) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${fileName}.json`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
+
+const getInitialSessionState = () => {
+  const fallbackWeek = getCurrentWeekInfo();
+
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return {
+        releases: [],
+        weekNumber: fallbackWeek.weekNumber,
+        weekYear: fallbackWeek.weekYear,
+      };
+    }
+
+    const parsed = JSON.parse(raw);
+
+    const weekNumber = isValidWeekNumber(parsed.weekNumber)
+      ? parsed.weekNumber
+      : fallbackWeek.weekNumber;
+
+    const weekYear = isValidWeekYear(parsed.weekYear)
+      ? parsed.weekYear
+      : fallbackWeek.weekYear;
+
+    return {
+      releases: sanitizeReleases(parsed.releases),
+      weekNumber,
+      weekYear,
+    };
+  } catch (err) {
+    console.error('Failed to load session data', err);
+    return {
+      releases: [],
+      weekNumber: fallbackWeek.weekNumber,
+      weekYear: fallbackWeek.weekYear,
+    };
+  }
+};
+
 
 const hexToHsl = (hex) => {
   const { r, g, b } = hexToRgb(hex);
@@ -121,11 +228,21 @@ const getRankLabel = (score, isNA) => isNA ? "N/A" : score >= 4.25 ? "TOP" : sco
 
 // 1. Форма добавления/редактирования (с крестиком)
 const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
-  const [formData, setFormData] = useState(initialData || { title: '', artist: '', score: '', coverLink: '' });
+  const [formData, setFormData] = useState({ title: '', artist: '', score: '', coverLink: '' });
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
-  React.useEffect(() => { if (initialData) setFormData(initialData); }, [initialData]);
+  // При открытии модалки для редактирования конвертируем 5-балльную шкалу в 1000-балльную
+  React.useEffect(() => { 
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        score: Math.round(initialData.score * 200).toString() // 4.25 -> 850
+      });
+    } else {
+      setFormData({ title: '', artist: '', score: '', coverLink: '' });
+    }
+  }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -140,9 +257,21 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const s = parseFloat(formData.score);
-    if (!formData.title || !formData.artist || isNaN(s)) { setError('Fill all fields'); return; }
-    onSave({ ...formData, score: Math.max(0, Math.min(5, s)) });
+    const rawScore = parseFloat(formData.score); // Пользователь ввел, например, 850
+    
+    if (!formData.title || !formData.artist || isNaN(rawScore)) { 
+      setError('Fill all fields'); 
+      return; 
+    }
+
+    // Конвертация из 1000-балльной в 5-балльную шкалу для хранения в списке
+    const convertedScore = Math.max(0, Math.min(5, (rawScore / 1000) * 5));
+
+    onSave({ 
+      ...formData, 
+      score: convertedScore 
+    });
+    
     setFormData({ title: '', artist: '', score: '', coverLink: '' });
     onClose();
   };
@@ -150,7 +279,7 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-[#111] w-full max-w-xs rounded-[2rem] border border-white/10 shadow-2xl font-sans overflow-hidden">
-        {/* Header с крестиком */}
+        {/* Header */}
         <div className="px-6 py-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
           <span className="text-[10px] font-black uppercase tracking-widest text-white/70">
             {initialData ? 'Edit Release' : 'New Entry'}
@@ -166,7 +295,10 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="flex flex-col items-center">
             <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-            <div onClick={() => fileInputRef.current.click()} className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 flex items-center justify-center cursor-pointer overflow-hidden group">
+            <div 
+              onClick={() => fileInputRef.current.click()} 
+              className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 flex items-center justify-center cursor-pointer overflow-hidden group"
+            >
               {formData.coverLink ? (
                 <img src={formData.coverLink} className="w-full h-full object-cover" alt="" />
               ) : (
@@ -174,13 +306,44 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
               )}
             </div>
           </div>
+
           <div className="space-y-2">
-            <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" placeholder="TITLE" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-            <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" placeholder="ARTIST" value={formData.artist} onChange={e => setFormData({...formData, artist: e.target.value})} />
-            <input type="number" step="0.01" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" placeholder="SCORE" value={formData.score} onChange={e => setFormData({...formData, score: e.target.value})} />
+            <input 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" 
+              placeholder="TITLE" 
+              value={formData.title} 
+              onChange={e => setFormData({...formData, title: e.target.value})} 
+            />
+            <input 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" 
+              placeholder="ARTIST" 
+              value={formData.artist} 
+              onChange={e => setFormData({...formData, artist: e.target.value})} 
+            />
+            
+            {/* Поле ввода для 1000-балльной шкалы */}
+            <div className="relative">
+              <input 
+                type="number" 
+                min="0"
+                max="1000"
+                step="1"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
+                placeholder="SCORE (0-1000)" 
+                value={formData.score} 
+                onChange={e => setFormData({...formData, score: e.target.value})} 
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-white/20 font-black">/1000</span>
+            </div>
           </div>
-          <button type="submit" className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 transition-all text-[10px] border border-white/5">
-            Save
+
+          {error && <p className="text-red-500 text-[8px] font-black uppercase text-center">{error}</p>}
+
+          <button 
+            type="submit" 
+            className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 transition-all text-[10px] border border-white/5"
+          >
+            {initialData ? 'Update' : 'Save'}
           </button>
         </form>
       </div>
@@ -419,8 +582,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
         >
           {isOneLine ? (
             <tspan x={0} dy="0.3em" className="fill-white/90">{`${name} ${tierRatio.toFixed(1)}%`}</tspan>
-          ) : (
-            <>
+          ) : (<>
               <tspan x={0} dy="-0.6em" className="fill-white/90">{name}</tspan>
               <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700 }} className="fill-white/70">{`${tierRatio.toFixed(1)}%`}</tspan>
             </>
@@ -438,7 +600,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
     'STOP': 'COMPLETELY ARGGH'
   };
 
-  const currentCaption = captions[dominantLabel] || 'READY FOR RUSH...';
+  const currentCaption = isNAState ? 'READY FOR RUSH…' : captions[dominantLabel];
   const captionLines = currentCaption.split(' | ');
 
   return (
@@ -478,7 +640,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
           <div className="flex flex-row items-center gap-6 sm:gap-12">
             <div className="flex flex-col items-center gap-2">
               <div className="relative">
-                <GradientStar percentage={100} score={avgScore} sizeClass="size-20 sm:size-32" isNA={isNAState} customGradientStops={customGradientStops} starColor={dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
+                <GradientStar percentage={100} score={avgScore} sizeClass="size-20 sm:size-32" isNA={isNAState} customGradientStops={customGradientStops} starColor={isNAState ? '#647280' : dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
               </div>
               {!isNAState && <span className="text-2xl sm:text-4xl font-black tracking-tighter leading-none" style={{ backgroundImage: textGradientStyle, color: customGradientStops ? 'transparent' : dominantColor, WebkitBackgroundClip: customGradientStops ? 'text' : 'border-box', backgroundClip: customGradientStops ? 'text' : 'border-box' }}>{avgScore.toFixed(2)}</span>}
             </div>
@@ -505,8 +667,12 @@ const Header = ({ weekNumber, dateRangeText }) => {
 /** --- MAIN APP --- **/
 
 const FreshPackOFlow = () => {
-  const weekInfo = useMemo(() => { const { startDate, endDate } = getWeekDates(new Date()); return { weekNumber: getWeekNumber(startDate), dateRangeText: formatWeekDateRange(startDate, endDate) }; }, []);
-  const [releases, setReleases] = useState([]);
+  const initialSession = useMemo(() => getInitialSessionState(), []);
+  const importInputRef = useRef(null);
+
+  const [releases, setReleases] = useState(initialSession.releases);
+  const [weekNumber, setWeekNumber] = useState(initialSession.weekNumber);
+  const [weekYear, setWeekYear] = useState(initialSession.weekYear);
   
   // States for Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -514,6 +680,29 @@ const FreshPackOFlow = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedRelease, setSelectedRelease] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  const weekInfo = useMemo(() => {
+    const { startDate, endDate } = getDatesFromWeekNumber(weekNumber, weekYear);
+    return {
+      weekNumber,
+      dateRangeText: formatWeekDateRange(startDate, endDate),
+    };
+  }, [weekNumber, weekYear]);
+
+  React.useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          weekNumber,
+          weekYear,
+          releases,
+        })
+      );
+    } catch (err) {
+      console.error('Failed to save session data', err);
+    }
+  }, [weekNumber, weekYear, releases]);
 
   const tierBase = useMemo(() => [
     { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", textColorClass: "text-white" },
@@ -526,57 +715,250 @@ const FreshPackOFlow = () => {
   const metrics = useMemo(() => {
     const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [] };
     releases.forEach(r => grouped[getRankLabel(r.score, false)].push(r));
-    const totalW = releases.reduce((acc, r) => acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[getRankLabel(r.score, false)]), 0);
+
+    const totalW = releases.reduce(
+      (acc, r) => acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[getRankLabel(r.score, false)]),
+      0
+    );
+
     const tierStats = tierBase.map(t => {
-      const rels = grouped[t.label], count = rels.length;
-      const wNum = rels.reduce((acc, r) => acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[t.label]), 0);
-      return { label: t.label, ratio: totalW > 0 ? wNum / totalW : 0, val: wNum, computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, releases.length) };
+      const rels = grouped[t.label];
+      const count = rels.length;
+      const wNum = rels.reduce(
+        (acc, r) => acc + (r.score + { TOP: 1, POP: 2, MOP: 3, FLOP: 4, STOP: 5 }[t.label]),
+        0
+      );
+
+      return {
+        label: t.label,
+        ratio: totalW > 0 ? wNum / totalW : 0,
+        val: wNum,
+        computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, releases.length),
+      };
     });
+
     return {
-      grouped, colors: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.computedColor }), {}), ratios: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.ratio }), {}),
-      pie: tierStats.map(s => ({ name: s.label, value: s.val, color: s.computedColor })), dominant: tierStats.reduce((p, c) => (c.val > p.val ? c : p), { val: -1 }),
-      avg: releases.length ? releases.reduce((a, b) => a + b.score, 0) / releases.length : 0, tierStats
+      grouped,
+      colors: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.computedColor }), {}),
+      ratios: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.ratio }), {}),
+      pie: tierStats.map(s => ({ name: s.label, value: s.val, color: s.computedColor })),
+      dominant: tierStats.reduce((p, c) => (c.val > p.val ? c : p), { val: -1 }),
+      avg: releases.length ? releases.reduce((a, b) => a + b.score, 0) / releases.length : 0,
+      tierStats
     };
   }, [releases, tierBase]);
 
   const handleSave = (data) => {
     if (isEditing) {
-      setReleases(prev => prev.map(r => (r.title === selectedRelease.title && r.artist === selectedRelease.artist) ? data : r).sort((a,b) => b.score - a.score));
+      setReleases(prev =>
+        prev
+          .map(r => (
+            r.title === selectedRelease.title && r.artist === selectedRelease.artist
+              ? data
+              : r
+          ))
+          .sort((a, b) => b.score - a.score)
+      );
     } else {
-      setReleases(prev => [...prev, data].sort((a,b) => b.score - a.score));
+      setReleases(prev => [...prev, data].sort((a, b) => b.score - a.score));
     }
+
     setIsEditing(false);
     setSelectedRelease(null);
   };
 
   const handleDelete = () => {
-    setReleases(prev => prev.filter(r => !(r.title === selectedRelease.title && r.artist === selectedRelease.artist)));
+    setReleases(prev =>
+      prev.filter(r => !(r.title === selectedRelease.title && r.artist === selectedRelease.artist))
+    );
     setIsConfirmOpen(false);
     setSelectedRelease(null);
+  };
+
+  const handleExportJson = () => {
+    const payload = {
+      version: 1,
+      weekNumber,
+      weekYear,
+      releases,
+    };
+
+    downloadJsonFile(
+      payload,
+      `fresh-pack-week-${weekYear}-${String(weekNumber).padStart(2, '0')}`
+    );
+  };
+
+  const handleImportJson = (e) => {
+    const input = e.target;
+    const file = input.files?.[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+
+        const nextWeekNumber = Number(parsed.weekNumber);
+        const nextWeekYear = Number(parsed.weekYear);
+
+        if (!isValidWeekNumber(nextWeekNumber)) {
+          throw new Error('Invalid week number');
+        }
+
+        if (!isValidWeekYear(nextWeekYear)) {
+          throw new Error('Invalid week year');
+        }
+
+        const nextReleases = sanitizeReleases(parsed.releases);
+
+        setReleases(nextReleases);
+        setWeekNumber(nextWeekNumber);
+        setWeekYear(nextWeekYear);
+
+        setIsFormOpen(false);
+        setIsMenuOpen(false);
+        setIsConfirmOpen(false);
+        setSelectedRelease(null);
+        setIsEditing(false);
+      } catch (err) {
+        console.error('Import failed', err);
+        alert('Invalid JSON file');
+      } finally {
+        input.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      alert('Could not read file');
+      input.value = '';
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleResetAll = () => {
+    const shouldReset = window.confirm(
+      'Clear all releases and return week to current?'
+    );
+
+    if (!shouldReset) return;
+
+    const currentWeek = getCurrentWeekInfo();
+
+    setReleases([]);
+    setWeekNumber(currentWeek.weekNumber);
+    setWeekYear(currentWeek.weekYear);
+
+    setIsFormOpen(false);
+    setIsMenuOpen(false);
+    setIsConfirmOpen(false);
+    setSelectedRelease(null);
+    setIsEditing(false);
   };
 
   return (
     <div className="min-h-screen bg-black text-white p-4 sm:p-8 font-sans">
       <div className="max-w-5xl mx-auto">
         <Header {...weekInfo} />
+
+        {/* CONTROLS BAR */}
+        <div className="mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+          <button
+            onClick={handleExportJson}
+            className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] transition-all"
+          >
+            Export JSON
+          </button>
+
+          <button
+            onClick={() => importInputRef.current?.click()}
+            className="px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] transition-all"
+          >
+            Import JSON
+          </button>
+
+          <button
+            onClick={handleResetAll}
+            className="px-5 py-3 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-black uppercase tracking-widest text-[10px] transition-all"
+          >
+            Reset
+          </button>
+
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportJson}
+          />
+        </div>
+
         <main className="space-y-4">
           {tierBase.map(t => (
-             <TierRow key={t.label} {...t} releases={metrics.grouped[t.label]} tierRatio={metrics.ratios[t.label]} computedColor={metrics.colors[t.label]} 
-               onRowClick={() => { setIsEditing(false); setSelectedRelease(null); setIsFormOpen(true); }} 
-               onReleaseClick={(rel) => { setSelectedRelease(rel); setIsMenuOpen(true); }}
-             />
+            <TierRow
+              key={t.label}
+              {...t}
+              releases={metrics.grouped[t.label]}
+              tierRatio={metrics.ratios[t.label]}
+              computedColor={metrics.colors[t.label]}
+              onRowClick={() => {
+                setIsEditing(false);
+                setSelectedRelease(null);
+                setIsFormOpen(true);
+              }}
+              onReleaseClick={(rel) => {
+                setSelectedRelease(rel);
+                setIsMenuOpen(true);
+              }}
+            />
           ))}
         </main>
-        <MusicRankingFooter avgScore={metrics.avg} isNAState={!releases.length} pieData={metrics.pie} dominantLabel={metrics.dominant.label} dominantColor={metrics.colors[metrics.dominant.label]} tierBase={tierBase} tierStats={metrics.tierStats} />
+
+        <MusicRankingFooter
+          avgScore={metrics.avg}
+          isNAState={!releases.length}
+          pieData={metrics.pie}
+          dominantLabel={metrics.dominant.label}
+          dominantColor={!releases.length ? '#647280' : metrics.colors[metrics.dominant.label]}
+          tierBase={tierBase}
+          tierStats={metrics.tierStats}
+        />
       </div>
 
       {/* MODALS FLOW */}
-      <ActionMenuModal isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} 
-        onEdit={() => { setIsMenuOpen(false); setIsEditing(true); setIsFormOpen(true); }} 
-        onDelete={() => { setIsMenuOpen(false); setIsConfirmOpen(true); }} 
+      <ActionMenuModal
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        onEdit={() => {
+          setIsMenuOpen(false);
+          setIsEditing(true);
+          setIsFormOpen(true);
+        }}
+        onDelete={() => {
+          setIsMenuOpen(false);
+          setIsConfirmOpen(true);
+        }}
       />
-      <ReleaseFormModal isOpen={isFormOpen} onClose={() => { setIsFormOpen(false); setIsEditing(false); setSelectedRelease(null); }} onSave={handleSave} initialData={isEditing ? selectedRelease : null} />
-      <ConfirmDeleteModal isOpen={isConfirmOpen} onClose={() => setIsConfirmOpen(false)} onConfirm={handleDelete} />
+
+      <ReleaseFormModal
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setIsEditing(false);
+          setSelectedRelease(null);
+        }}
+        onSave={handleSave}
+        initialData={isEditing ? selectedRelease : null}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };
