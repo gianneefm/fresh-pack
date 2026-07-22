@@ -412,8 +412,8 @@ const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, relea
   const rowRef = useRef(null);
   const avg = releases.length ? releases.reduce((acc, r) => acc + r.score, 0) / releases.length : 0;
   return (
-    <section className="w-full mb-8 last:mb-0 pb-8 font-sans">
-      <div className="bg-black p-0.5 rounded-3xl"> 
+    <section ref={rowRef} className="w-full mb-8 last:mb-0 pb-8 font-sans">
+      <div classNa11me="bg-black p-0.5 rounded-3xl"> 
         <div className={`flex flex-col sm:flex-row rounded-2xl overflow-hidden border border-white/10 shadow-md relative group/row transition-all`} style={{ background: `${rowBgColor}` }}>
           <div className={`flex flex-col items-center justify-center py-6 sm:py-0 sm:w-28 md:w-32 flex-shrink-0 gap-1 ${textColorClass} shadow-xl cursor-pointer hover:brightness-110`} 
                onClick={() => exportElement(rowRef, `Tier-${label}`)} style={{ background: `${bgColor}` }}>
@@ -430,7 +430,7 @@ const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, relea
           </div>
         </div>
       </div>
-      <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor} onRankClick={() => exportElement(rowRef, `Footer-${label}`)}
+      <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor}
                   labelText={<div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight"><span style={{ color: computedColor }}>{label}</span><span className="text-gray-400">RATIO</span></div>} />
     </section>
   );
@@ -472,13 +472,13 @@ const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, c
   );
 };
 
-const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor, onRankClick }) => {
+const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor }) => {
   const footerStarPercentage = isNAState ? 100 : tierRatio * 100;
   return (
     <div className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans">
       <div className="flex-shrink-0 font-bold">{labelText}</div>
       <div className="flex flex-col items-center gap-1">
-        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor} onStarClick={onRankClick} />
+        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor}/>
         {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
       </div>
     </div>
