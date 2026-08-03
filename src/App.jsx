@@ -640,7 +640,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
           <div className="flex flex-row items-center gap-6 sm:gap-12">
             <div className="flex flex-col items-center gap-2">
               <div className="relative">
-                <GradientStar percentage={100} score={avgScore} sizeClass="size-20 sm:size-18" isNA={isNAState} customGradientStops={customGradientStops} starColor={isNAState ? '#647280' : dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
+                <GradientStar percentage={100} score={avgScore} sizeClass="size-15 sm:size-15" isNA={isNAState} customGradientStops={customGradientStops} starColor={isNAState ? '#647280' : dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
               </div>
               {!isNAState && <span className="text-2xl sm:text-4xl font-black tracking-tighter leading-none" style={{ backgroundImage: textGradientStyle, color: customGradientStops ? 'transparent' : dominantColor, WebkitBackgroundClip: customGradientStops ? 'text' : 'border-box', backgroundClip: customGradientStops ? 'text' : 'border-box' }}>{avgScore.toFixed(2)}</span>}
             </div>
