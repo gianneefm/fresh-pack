@@ -222,7 +222,7 @@ const getDynamicColor = (score) => {
   return scale[4].c;
 };
 
-const getRankLabel = (score, isNA) => isNA ? "N/A" : score >= 4.25 ? "TOP" : score >= 3.75 ? "POP" : score >= 2.5 ? "MOP" : score >= 1 ? "FLOP" : "STOP";
+const getRankLabel = (score, isNA) => isNA ? "N/A" : score >= 4.5 ? "TOP" : score >= 3.75 ? "POP" : score >= 2.5 ? "MOP" : score >= 1 ? "FLOP" : "STOP";
 
 /** --- MODALS --- **/
 
