@@ -327,7 +327,7 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
                 type="number" 
                 min="0"
                 max="1000"
-                step="О.1"
+                step="0.1"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
                 placeholder="SCORE (0-1000)" 
                 value={formData.score} 
