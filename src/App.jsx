@@ -397,7 +397,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
     <div onClick={onClick} className="relative group w-full aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans cursor-pointer">
       <img src={coverLink || 'https://via.placeholder.com/300?text=NO+IMAGE'} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute top-0 right-0 bg-black px-2 py-1 rounded-tr-xl rounded-bl-md z-20 border-l border-b border-white/10 min-w-[28px] text-center">
-        <span className="font-sans text-[9px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(3)}</span>
+        <span className="font-sans text-[9px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(3).endsWith('0') ? score.toFixed(2) : score.toFixed(3)}</span>
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
       <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
@@ -642,7 +642,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
               <div className="relative">
                 <GradientStar percentage={100} score={avgScore} sizeClass="size-15 sm:size-15" isNA={isNAState} customGradientStops={customGradientStops} starColor={isNAState ? '#647280' : dominantColor} onStarClick={() => exportElement(footerRef, 'Main-Rank')} />
               </div>
-              {!isNAState && <span className="text-2xl sm:text-4xl font-black tracking-tighter leading-none" style={{ backgroundImage: textGradientStyle, color: customGradientStops ? 'transparent' : dominantColor, WebkitBackgroundClip: customGradientStops ? 'text' : 'border-box', backgroundClip: customGradientStops ? 'text' : 'border-box' }}>{avgScore.toFixed(2)}</span>}
+              {!isNAState && <span className="text-2xl sm:text-4xl font-black tracking-tighter leading-none" style={{ backgroundImage: textGradientStyle, color: customGradientStops ? 'transparent' : dominantColor, WebkitBackgroundClip: customGradientStops ? 'text' : 'border-box', backgroundClip: customGradientStops ? 'text' : 'border-box' }}>{avgScore.toFixed(3).endsWith('0') ? avgScore.toFixed(2) : avgScore.toFixed(3)}</span>}
             </div>
             <span className="text-5xl sm:text-9xl font-black uppercase tracking-tighter" style={{ backgroundImage: reverseRankLabelGradient !== 'none' ? reverseRankLabelGradient : 'none', WebkitBackgroundClip: reverseRankLabelGradient !== 'none' ? 'text' : 'border-box', backgroundClip: reverseRankLabelGradient !== 'none' ? 'text' : 'border-box', color: isNAState ? '#4B5563' : (reverseRankLabelGradient !== 'none' ? 'transparent' : dominantColor) }}>{getRankLabel(avgScore, isNAState)}</span>
           </div>
