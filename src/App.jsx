@@ -570,7 +570,8 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
   }, [customGradientStops]);
 
   const renderCustomizedLabel = (props) => {
-    const { cx, cy, innerRadius, outerRadius, percent, name, startAngle, endAngle } = props;
+    const { cx, cy, innerRadius, outerRadius, percent, name, startAngle, endAngle, fill } = props;
+    const labelColor = getLabelColor(fill);
     const RADIAN = Math.PI / 180;
     if (isNAState || (activeCount === 1 && !isNAState)) return null;
     const midAngle = (startAngle + endAngle) / 2;
