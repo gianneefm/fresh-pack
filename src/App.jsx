@@ -496,6 +496,16 @@ const ActiveSector = (props) => {
   );
 };
 
+const getLabelColor = (hex) => {
+  const value = hex.replace('#', '');
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+
+  const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return brightness > 0.55 ? '#111827' : '#FFFFFF';
+};
+
 const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, dominantLabel, dominantColor, tierBase, tierStats }) => {
   const footerRef = useRef(null);
 
