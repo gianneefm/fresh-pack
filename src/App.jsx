@@ -594,8 +594,10 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
           {isOneLine ? (
             <tspan x={0} dy="0.3em" className="fill-white/90">{`${name} ${tierRatio.toFixed(1)}%`}</tspan>
           ) : (<>
-              <tspan x={0} dy="-0.6em" className="fill-white/90">{name}</tspan>
-              <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700 }} className="fill-white/70">{`${tierRatio.toFixed(1)}%`}</tspan>
+              <tspan x={0} dy="-0.6em" className="fill-white/90" style={{ fill: labelColor, opacity: 0.9 }}
+>{name}</tspan>
+              <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700 }} className="fill-white/70" style={{ fill: labelColor, opacity: 0.9 }}
+>{`${tierRatio.toFixed(1)}%`}</tspan>
             </>
           )}
         </text>
