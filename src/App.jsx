@@ -586,7 +586,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
     return (
       <g transform={`translate(${x}, ${y})`}>
         <text
-          x={0} y={0} fill={labelСоlor} textAnchor="middle" dominantBaseline="central"
+          x={0} y={0} fill={labelColor} textAnchor="middle" dominantBaseline="central"
           transform={`rotate(${rotationAngle})`}
           className="font-sans font-black uppercase tracking-tighter pointer-events-none"
           style={{ fontSize: `${baseFontSize}px` }}
