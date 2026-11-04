@@ -496,14 +496,19 @@ const ActiveSector = (props) => {
   );
 };
 
-const getLabelColor = (hex) => {
-  const value = hex.replace('#', '');
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
+const invertColor = (hex) => {
+    const value = hex.replace('#', '');
+  const r = 255 - parseInt(value.slice(0, 2), 16);
+  const g = 255 - parseInt(value.slice(2, 4), 16);
+  const b = 255 - parseInt(value.slice(4, 6), 16);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
 
-  const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return brightness > 0.55 ? '#111827' : '#FFFFFF';
+const getLabelColor = (hex) => {
+  const lightness = hexToHsl(hex).l;
+  if (lightness < 50) return '#fffff';
+    else if (lightness > 55)  return '#111827';
+      else return invertColor(hex);
 };
 
 const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, dominantLabel, dominantColor, tierBase, tierStats }) => {
@@ -596,7 +601,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
           ) : (<>
               <tspan x={0} dy="-0.6em" className="fill-white/90" style={{ fill: labelColor, opacity: 0.9 }}
 >{name}</tspan>
-              <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700 }} className="fill-white/70" style={{ fill: labelColor, opacity: 0.9 }}
+              <tspan x={0} dy="1.2em" style={{ fontSize: `${baseFontSize - 1}px`, fontWeight: 700,  fill: labelColor, opacity: 0.9 }}
 >{`${tierRatio.toFixed(1)}%`}</tspan>
             </>
           )}
