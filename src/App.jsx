@@ -495,13 +495,15 @@ const ActiveSector = (props) => {
     </g>
   );
 };
-
+const LPad = (str, len, symbol) => {
+  return symbol*(len - str.length) + str;
+}
 const invertColor = (hex) => {
     const value = hex.replace('#', '');
-  const r = 255 - parseInt(value.slice(0, 2), 16);
-  const g = 255 - parseInt(value.slice(2, 4), 16);
-  const b = 255 - parseInt(value.slice(4, 6), 16);
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+    const r = 255 - parseInt(value.slice(0, 2), 16);
+    const g = 255 - parseInt(value.slice(2, 4), 16);
+    const b = 255 - parseInt(value.slice(4, 6), 16);
+    return `#${LPad(r, 2, '0')}${LPad(g, 2, '0')}${LPad(b, 2, '0')}`
 }
 
 const getLabelColor = (hex) => {
