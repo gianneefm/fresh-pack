@@ -495,22 +495,15 @@ const ActiveSector = (props) => {
     </g>
   );
 };
-const LPad = (str, len, symbol) => {
-  return symbol*(len - str.length) + str;
-}
-const invertColor = (hex) => {
-    const value = hex.replace('#', '');
-    const r = 255 - parseInt(value.slice(0, 2), 16);
-    const g = 255 - parseInt(value.slice(2, 4), 16);
-    const b = 255 - parseInt(value.slice(4, 6), 16);
-    return `#${LPad(r, 2, '0')}${LPad(g, 2, '0')}${LPad(b, 2, '0')}`
-}
 
 const getLabelColor = (hex) => {
-  const lightness = hexToHsl(hex).l;
-  if (lightness < 50) return '#fffff';
-    else if (lightness > 55)  return '#111827';
-      else return invertColor(hex);
+  const { r, g, b } = hexToRgb(hex);
+  const lin = (v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.179 ? '#111827' : '#ffffff';
 };
 
 const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, dominantLabel, dominantColor, tierBase, tierStats }) => {
@@ -599,7 +592,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
           style={{ fontSize: `${baseFontSize}px` }}
         >
           {isOneLine ? (
-            <tspan x={0} dy="0.3em" className="fill-white/90">{`${name} ${tierRatio.toFixed(1)}%`}</tspan>
+            <tspan x={0} dy="0.3em" style={{ fill: labelColor, opacity: 0.9 }}>{`${name} ${tierRatio.toFixed(1)}%`}</tspan>
           ) : (<>
               <tspan x={0} dy="-0.6em" className="fill-white/90" style={{ fill: labelColor, opacity: 0.9 }}
 >{name}</tspan>
