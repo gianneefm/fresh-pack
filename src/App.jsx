@@ -496,14 +496,17 @@ const ActiveSector = (props) => {
   );
 };
 
-const getLabelColor = (hex) => {
+const invertColor = (hex) => {
   const { r, g, b } = hexToRgb(hex);
-  const lin = (v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  };
-  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return L > 0.179 ? '#111827' : '#ffffff';
+  const toHex = (v) => (255 - v).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const getLabelColor = (hex) => {
+  const lightness = hexToHsl(hex).l;
+  if (lightness < 50) return '#ffffff';
+  else if (lightness > 55) return '#111827';
+  else return invertColor(hex);
 };
 
 const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, dominantLabel, dominantColor, tierBase, tierStats }) => {
