@@ -890,11 +890,11 @@ const FreshPackOFlow = () => {
   }, [weekNumber, weekYear, releases]);
 
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", textColorClass: "text-white" },
-    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", textColorClass: "text-white" },
-    { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
-    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", textColorClass: "text-white" },
-    { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
+    { label: "TOP", icon: Star, bgColor: "#059467", rowBgColor: "#bbf1e0", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#699405", rowBgColor: "#f0fecd", textColorClass: "text-white" },
+    { label: "MOP", icon: Minus, bgColor: "#c6a006", rowBgColor: "#f0dfbc", textColorClass: "text-white" },
+    { label: "FLOP", icon: TrendingDown, bgColor: "#c64906", rowBgColor: "#efa27b", textColorClass: "text-white" },
+    { label: "STOP", icon: XCircle, bgColor: "#c60606", rowBgColor: "#c87979", textColorClass: "text-white" }
   ], []);
 
   const metrics = useMemo(() => {
