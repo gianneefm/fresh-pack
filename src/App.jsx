@@ -1,13 +1,51 @@
 import React, { useMemo, useId, useRef, useState } from 'react';
-import { Star, TrendingUp, Minus, TrendingDown, XCircle, Plus, X, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Star, TrendingUp, Minus, TrendingDown, XCircle, Plus, X, Edit2, Trash2, AlertTriangle, Crown } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { toPng } from 'html-to-image';
+
+/** --- FONTS --- **/
+
+// Единый явный шрифт для всех устройств и браузеров (вместо системного font-sans, который у каждой ОС свой).
+const APP_FONT_FAMILY = "'Inter', sans-serif";
+const FONT_LINK_ID = 'app-inter-font';
+const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap';
+
+const FONT_CSS = `
+  :root { --app-font: ${APP_FONT_FAMILY}; }
+  html, body, #root, button, input, textarea, select, .font-sans, svg text, svg tspan {
+    font-family: var(--app-font) !important;
+  }
+  html, body {
+    font-synthesis: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+`;
+
+const useAppFont = () => {
+  React.useEffect(() => {
+    if (document.getElementById(FONT_LINK_ID)) return;
+    const preconnect1 = document.createElement('link');
+    preconnect1.rel = 'preconnect';
+    preconnect1.href = 'https://fonts.googleapis.com';
+    const preconnect2 = document.createElement('link');
+    preconnect2.rel = 'preconnect';
+    preconnect2.href = 'https://fonts.gstatic.com';
+    preconnect2.crossOrigin = 'anonymous';
+    const link = document.createElement('link');
+    link.id = FONT_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href = FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link);
+  }, []);
+};
 
 /** --- UTILS --- **/
 
 const exportElement = async (ref, fileName) => {
   if (!ref.current) return;
   try {
+    if (document.fonts?.ready) await document.fonts.ready;
     const dataUrl = await toPng(ref.current, {
       quality: 1, pixelRatio: 3, backgroundColor: '#000000', cacheBust: true, skipFonts: false,
     });
@@ -96,20 +134,56 @@ const getCurrentWeekInfo = () => {
   };
 };
 
-const normalizeRelease = (item) => ({
-  title: typeof item?.title === 'string' ? item.title : '',
-  artist: typeof item?.artist === 'string' ? item.artist : '',
-  coverLink: typeof item?.coverLink === 'string' ? item.coverLink : '',
-  score: Math.max(0, Math.min(5, Number(item?.score) || 0)),
-});
+// Ключ для проверки дубликатов: название + артист (без учёта регистра и лишних пробелов)
+const normalizeKeyPart = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+const getReleaseKey = (title, artist) => `${normalizeKeyPart(title)}\u0000${normalizeKeyPart(artist)}`;
+
+// Релизы без оценки (score === null) идут в конец
+const compareReleases = (a, b) => (b.score ?? -1) - (a.score ?? -1);
+
+// 5-балльная оценка -> текст для поля ввода (1000-балльная шкала), без округления и без float-мусора
+const scoreToInputText = (score) =>
+  score === null || score === undefined ? '' : String(parseFloat((score * 200).toFixed(6)));
+
+const normalizeRelease = (item) => {
+  const rawScore = item?.score;
+  const hasScore =
+    rawScore !== null && rawScore !== undefined && rawScore !== '' && Number.isFinite(Number(rawScore));
+  const score = hasScore ? Math.max(0, Math.min(5, Number(rawScore))) : null;
+
+  const release = {
+    title: typeof item?.title === 'string' ? item.title : '',
+    artist: typeof item?.artist === 'string' ? item.artist : '',
+    coverLink: typeof item?.coverLink === 'string' ? item.coverLink : '',
+    score,
+  };
+
+  // Оценка в том виде, в котором её ввели (чтобы при редактировании она не менялась)
+  if (score !== null && (typeof item?.inputScore === 'string' || typeof item?.inputScore === 'number')) {
+    const parsed = parseFloat(item.inputScore);
+    if (Number.isFinite(parsed) && Math.abs(Math.max(0, Math.min(1000, parsed)) / 200 - score) < 1e-9) {
+      release.inputScore = String(item.inputScore);
+    }
+  }
+
+  return release;
+};
 
 const sanitizeReleases = (items) => {
   if (!Array.isArray(items)) return [];
 
+  const seen = new Set();
+
   return items
     .map(normalizeRelease)
     .filter(item => item.title && item.artist)
-    .sort((a, b) => b.score - a.score);
+    .filter(item => {
+      const key = getReleaseKey(item.title, item.artist);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort(compareReleases);
 };
 
 const downloadJsonFile = (data, fileName) => {
@@ -224,27 +298,49 @@ const getDynamicColor = (score) => {
 
 const getRankLabel = (score, isNA) => isNA ? "N/A" : score >= 4.5 ? "TOP" : score >= 3.75 ? "POP" : score >= 2.5 ? "MOP" : score >= 1 ? "FLOP" : "STOP";
 
-// Вес одного релиза в tier ratio зависит только от его категории.
-// Количество — основной фактор (каждый релиз ≈ 1), категория — лёгкая добавка:
-// при равном числе релизов выше ratio у более высокой категории, но разница небольшая,
-// а один лишний релиз в категории всегда перевешивает разницу в весах
-// (гарантия действует, пока в меньшей из сравниваемых категорий меньше 25 релизов).
-const categoryWeights = { TOP: 1.04, POP: 1.03, MOP: 1.02, FLOP: 1.01, STOP: 1.00 };
+/** --- TIER RATIO WEIGHTS --- **/
+
+// Вес одного релиза в категории. Ratio считается как сумма весов релизов категории / сумма весов всех релизов,
+// поэтому он в первую очередь зависит от КОЛИЧЕСТВА релизов, а вес категории лишь слегка смещает его в пользу высшей.
+// При равном числе релизов Ratio всегда выше у более высокой категории (TOP > POP > MOP > FLOP > STOP).
+const categoryWeights = { TOP: 1.10, POP: 1.05, MOP: 1.00, FLOP: 0.95, STOP: 0.90 };
+
+// Границы оценок (шкала 0–5) для каждой категории
+const tierScoreRanges = {
+  TOP: [4.5, 5],
+  POP: [3.75, 4.5],
+  MOP: [2.5, 3.75],
+  FLOP: [1, 2.5],
+  STOP: [0, 1],
+};
+
+// Насколько оценка внутри категории может сдвинуть вес релиза (±QUALITY_SPREAD / 2).
+// Должно быть меньше шага между соседними весами в categoryWeights (0.05), чтобы диапазоны категорий не пересекались.
+const QUALITY_SPREAD = 0.04;
+
+const getReleaseWeight = (score, label) => {
+  const [min, max] = tierScoreRanges[label];
+  const position = max > min ? Math.max(0, Math.min(1, (score - min) / (max - min))) : 0.5;
+  return categoryWeights[label] + QUALITY_SPREAD * (position - 0.5);
+};
 
 /** --- MODALS --- **/
 
 // 1. Форма добавления/редактирования (с крестиком)
-const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
+const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] }) => {
   const [formData, setFormData] = useState({ title: '', artist: '', score: '', coverLink: '' });
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
-  // При открытии модалки для редактирования конвертируем 5-балльную шкалу в 1000-балльную
+  // При открытии модалки для редактирования показываем оценку в том виде, в котором её ввели (без округления)
   React.useEffect(() => { 
+    setError('');
     if (initialData) {
       setFormData({
-        ...initialData,
-        score: Math.round(initialData.score * 200).toString() // 4.25 -> 850
+        title: initialData.title,
+        artist: initialData.artist,
+        coverLink: initialData.coverLink || '',
+        score: initialData.inputScore ?? scoreToInputText(initialData.score)
       });
     } else {
       setFormData({ title: '', artist: '', score: '', coverLink: '' });
@@ -264,22 +360,46 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const rawScore = parseFloat(formData.score); // Пользователь ввел, например, 850
-    
-    if (!formData.title || !formData.artist || isNaN(rawScore)) { 
-      setError('Fill all fields'); 
+    const title = formData.title.trim();
+    const artist = formData.artist.trim();
+    const scoreText = String(formData.score ?? '').trim();
+
+    if (!title || !artist) { 
+      setError('Fill title and artist'); 
       return; 
     }
 
-    // Конвертация из 1000-балльной в 5-балльную шкалу для хранения в списке
-    const convertedScore = Math.max(0, Math.min(5, (rawScore / 1000) * 5));
+    // Оценка необязательна: пустое поле -> релиз без оценки (категория NOP)
+    let score = null;
+    if (scoreText !== '') {
+      const rawScore = parseFloat(scoreText.replace(',', '.')); // Пользователь ввел, например, 850
+      if (isNaN(rawScore)) {
+        setError('Invalid score');
+        return;
+      }
+      // Конвертация из 1000-балльной в 5-балльную шкалу для хранения в списке
+      score = Math.max(0, Math.min(5, (rawScore / 1000) * 5));
+    }
 
-    onSave({ 
-      ...formData, 
-      score: convertedScore 
+    // Запрет на добавление релизов с одинаковыми названием и артистом
+    const newKey = getReleaseKey(title, artist);
+    const originalKey = initialData ? getReleaseKey(initialData.title, initialData.artist) : null;
+    const isDuplicate = releases.some(r => {
+      const key = getReleaseKey(r.title, r.artist);
+      return key === newKey && key !== originalKey;
     });
+    if (isDuplicate) {
+      setError('Release already exists');
+      return;
+    }
+
+    const payload = { title, artist, coverLink: formData.coverLink, score };
+    if (score !== null) payload.inputScore = scoreText;
+
+    onSave(payload);
     
     setFormData({ title: '', artist: '', score: '', coverLink: '' });
+    setError('');
     onClose();
   };
 
@@ -336,7 +456,7 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData }) => {
                 max="1000"
                 step="0.1"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
-                placeholder="SCORE (0-1000)" 
+                placeholder="SCORE (0-1000, OPTIONAL)" 
                 value={formData.score} 
                 onChange={e => setFormData({...formData, score: e.target.value})} 
               />
@@ -398,47 +518,85 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm }) => {
 
 /** --- SUB-COMPONENTS --- **/
 
+// Золотой металлик для релизов с максимальной оценкой (1000/1000)
+const GOLD_METALLIC = 'linear-gradient(135deg, #8a6414 0%, #f7e08a 18%, #d4af37 36%, #fff6c4 50%, #c9a227 64%, #f1d36b 82%, #8a6414 100%)';
+const isPerfectScore = (score) => score !== null && score !== undefined && score >= 5;
+
 const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
-  const color = getDynamicColor(score);
+  const hasScore = score !== null && score !== undefined;
+  const isPerfect = isPerfectScore(score);
+  const color = hasScore ? getDynamicColor(score) : undefined;
+  const scoreText = hasScore ? (score.toFixed(3).endsWith('0') ? score.toFixed(2) : score.toFixed(3)) : '';
+
   return (
-    <div onClick={onClick} className="relative group w-full aspect-square rounded-xl overflow-hidden bg-white/10 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans cursor-pointer">
-      <img src={coverLink || 'https://via.placeholder.com/300?text=NO+IMAGE'} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
-      <div className="absolute top-0 right-0 bg-black px-2 py-1 rounded-tr-xl rounded-bl-md z-20 border-l border-b border-white/10 min-w-[28px] text-center">
-        <span className="font-sans text-[9px] font-extrabold tracking-tighter" style={{ color }}>{score.toFixed(3).endsWith('0') ? score.toFixed(2) : score.toFixed(3)}</span>
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
-      <div className="absolute bottom-0 left-0 w-full p-2.5 flex flex-col justify-end items-start overflow-hidden font-sans">
-        <h3 className="text-white text-[10px] font-extrabold tracking-tight leading-tight w-full break-words uppercase">{title}</h3>
-        <p className="text-white/80 text-[8px] font-medium leading-tight mt-1 w-full break-words uppercase">{artist}</p>
+    <div
+      onClick={onClick}
+      className={`relative group w-full aspect-square transition-transform duration-300 hover:scale-105 active:scale-95 text-left font-sans cursor-pointer ${isPerfect ? 'rounded-[1.25rem]' : 'rounded-xl'}`}
+      style={isPerfect ? { background: GOLD_METALLIC, padding: '6px', boxShadow: '0 0 22px rgba(247, 224, 138, 0.45)' } : undefined}
+    >
+      <div className={`relative w-full h-full overflow-hidden bg-white/10 ${isPerfect ? 'rounded-2xl border border-black/50' : 'rounded-xl border border-white/20 shadow-lg'}`}>
+        <img src={coverLink || 'https://via.placeholder.com/300?text=NO+IMAGE'} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" />
+        {isPerfect && (
+          <div className="absolute top-2 left-2 z-20 rounded-full bg-black/60 p-1.5 sm:p-2 flex items-center justify-center">
+            <Crown className="size-5 sm:size-6" fill="#f7d774" stroke="#8a6414" strokeWidth={1.5} />
+          </div>
+        )}
+        {hasScore && (
+          <div
+            className={`absolute top-0 right-0 z-20 text-center border-l border-b ${isPerfect ? 'px-3 py-1.5 rounded-bl-xl border-black/40' : 'bg-black px-2 py-1 rounded-tr-xl rounded-bl-md border-white/10 min-w-[28px]'}`}
+            style={isPerfect ? { background: GOLD_METALLIC } : undefined}
+          >
+            <span
+              className={`font-sans font-extrabold tracking-tighter ${isPerfect ? 'text-xs sm:text-sm' : 'text-[9px]'}`}
+              style={{ color }}
+            >{scoreText}</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
+        <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
+          <h3 className={`text-white font-extrabold tracking-tight leading-tight w-full break-words uppercase ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}>{title}</h3>
+          <p className={`text-white/80 font-medium leading-tight mt-1 w-full break-words uppercase ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}>{artist}</p>
+        </div>
       </div>
     </div>
   );
 };
 
-const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, releases, computedColor, tierRatio, onRowClick, onReleaseClick }) => {
+const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, isNop = false, releases, computedColor, tierRatio, onRowClick, onReleaseClick }) => {
   const rowRef = useRef(null);
-  const avg = releases.length ? releases.reduce((acc, r) => acc + r.score, 0) / releases.length : 0;
+  const avg = releases.length ? releases.reduce((acc, r) => acc + (r.score ?? 0), 0) / releases.length : 0;
   return (
     <section ref={rowRef} className="w-full mb-8 last:mb-0 pb-8 font-sans">
       <div classNa11me="bg-black p-0.5 rounded-3xl"> 
         <div className={`flex flex-col sm:flex-row rounded-2xl overflow-hidden border border-white/10 shadow-md relative group/row transition-all`} style={{ background: `${rowBgColor}` }}>
-          <div className={`flex flex-col items-center justify-center py-6 sm:py-0 sm:w-28 md:w-32 flex-shrink-0 gap-1 ${textColorClass} shadow-xl cursor-pointer hover:brightness-110`} 
-               onClick={() => exportElement(rowRef, `Tier-${label}`)} style={{ background: `${bgColor}` }}>
+          <div className={`flex flex-col items-center justify-center py-6 sm:py-0 sm:w-28 md:w-32 flex-shrink-0 gap-1 ${textColorClass} shadow-xl ${isNop ? '' : 'cursor-pointer hover:brightness-110'}`} 
+               onClick={isNop ? undefined : () => exportElement(rowRef, `Tier-${label}`)} style={{ background: `${bgColor}` }}>
             {Icon && <Icon className="size-6 sm:size-7 opacity-90" />}
             <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter text-center leading-none">{label}</h2>
           </div>
           <div className="flex flex-wrap justify-center p-4 gap-3 flex-grow min-h-44 cursor-crosshair relative" onClick={(e) => { if (e.target === e.currentTarget || e.target.id === 'empty-slot') onRowClick(); }}>
-            {releases.length ? releases.map((rel, idx) => (
-              <div key={idx} className="w-[calc(50%-0.75rem)] xs:w-[calc(33.33%-0.75rem)] sm:w-32 md:w-36 pointer-events-auto">
-                <ReleaseItem {...rel} onClick={(e) => { e.stopPropagation(); onReleaseClick(rel); }} />
-              </div>
-            )) : <div id="empty-slot" className="flex items-center justify-center w-full h-36 border-2 border-dashed border-gray-400/40 rounded-xl px-4 text-center text-gray-500/80 font-black uppercase text-xs tracking-widest">NO SUCH RELEASES</div>}
+            {releases.length ? releases.map((rel, idx) => {
+              const perfect = isPerfectScore(rel.score);
+              const item = <ReleaseItem {...rel} onClick={(e) => { e.stopPropagation(); onReleaseClick(rel); }} />;
+              // Релиз с оценкой 1000 занимает всю строку: увеличенная карточка по центру, остальные переносятся на другие строки
+              return perfect ? (
+                <div key={idx} className="w-full flex justify-center pointer-events-auto py-2">
+                  <div className="w-full max-w-[16rem] sm:max-w-[20rem]">{item}</div>
+                </div>
+              ) : (
+                <div key={idx} className="w-[calc(50%-0.75rem)] xs:w-[calc(33.33%-0.75rem)] sm:w-32 md:w-36 pointer-events-auto">
+                  {item}
+                </div>
+              );
+            }) : <div id="empty-slot" className="flex items-center justify-center w-full h-36 border-2 border-dashed border-gray-400/40 rounded-xl px-4 text-center text-gray-500/80 font-black uppercase text-xs tracking-widest">NO SUCH RELEASES</div>}
             <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/row:opacity-100 pointer-events-none flex items-center justify-center transition-opacity"><Plus className="text-white/20" size={48} /></div>
           </div>
         </div>
       </div>
-      <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor}
-                  labelText={<div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight"><span style={{ color: computedColor }}>{label}</span><span className="text-gray-400">RATIO</span></div>} />
+      {!isNop && (
+        <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor}
+                    labelText={<div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight"><span style={{ color: computedColor }}>{label}</span><span className="text-gray-400">RATIO</span></div>} />
+      )}
     </section>
   );
 };
@@ -689,7 +847,11 @@ const Header = ({ weekNumber, dateRangeText }) => {
 
 /** --- MAIN APP --- **/
 
+// Временная категория для релизов без оценки (без иконки, не участвует в статистике и скачивании)
+const NOP_TIER = { label: "NOP", icon: null, bgColor: "#585855", rowBgColor: "#b0afac", textColorClass: "text-white", isNop: true };
+
 const FreshPackOFlow = () => {
+  useAppFont();
   const initialSession = useMemo(() => getInitialSessionState(), []);
   const importInputRef = useRef(null);
 
@@ -736,24 +898,28 @@ const FreshPackOFlow = () => {
   ], []);
 
   const metrics = useMemo(() => {
-    const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [] };
-    releases.forEach(r => grouped[getRankLabel(r.score, false)].push(r));
+    const grouped = { TOP: [], POP: [], MOP: [], FLOP: [], STOP: [], NOP: [] };
+    const scored = releases.filter(r => r.score !== null);
+    releases.forEach(r => grouped[r.score === null ? 'NOP' : getRankLabel(r.score, false)].push(r));
 
-    const totalW = releases.reduce(
-      (acc, r) => acc + categoryWeights[getRankLabel(r.score, false)],
+    const totalW = scored.reduce(
+      (acc, r) => acc + getReleaseWeight(r.score, getRankLabel(r.score, false)),
       0
     );
 
     const tierStats = tierBase.map(t => {
       const rels = grouped[t.label];
       const count = rels.length;
-      const wNum = count * categoryWeights[t.label];
+      const wNum = rels.reduce(
+        (acc, r) => acc + getReleaseWeight(r.score, t.label),
+        0
+      );
 
       return {
         label: t.label,
         ratio: totalW > 0 ? wNum / totalW : 0,
         val: wNum,
-        computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, releases.length),
+        computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, scored.length),
       };
     });
 
@@ -763,7 +929,8 @@ const FreshPackOFlow = () => {
       ratios: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.ratio }), {}),
       pie: tierStats.map(s => ({ name: s.label, value: s.val, color: s.computedColor })),
       dominant: tierStats.reduce((p, c) => (c.val > p.val ? c : p), { val: -1 }),
-      avg: releases.length ? releases.reduce((a, b) => a + b.score, 0) / releases.length : 0,
+      avg: scored.length ? scored.reduce((a, b) => a + b.score, 0) / scored.length : 0,
+      scoredCount: scored.length,
       tierStats
     };
   }, [releases, tierBase]);
@@ -777,10 +944,10 @@ const FreshPackOFlow = () => {
               ? data
               : r
           ))
-          .sort((a, b) => b.score - a.score)
+          .sort(compareReleases)
       );
     } else {
-      setReleases(prev => [...prev, data].sort((a, b) => b.score - a.score));
+      setReleases(prev => [...prev, data].sort(compareReleases));
     }
 
     setIsEditing(false);
@@ -881,6 +1048,7 @@ const FreshPackOFlow = () => {
 
   return (
     <div className="min-h-screen bg-black text-white p-4 sm:p-8 font-sans">
+      <style>{FONT_CSS}</style>
       <div className="max-w-5xl mx-auto">
         <Header {...weekInfo} />
 
@@ -917,7 +1085,7 @@ const FreshPackOFlow = () => {
         </div>
 
         <main className="space-y-4">
-          {tierBase.map(t => (
+          {(metrics.grouped.NOP.length ? [...tierBase, NOP_TIER] : tierBase).map(t => (
             <TierRow
               key={t.label}
               {...t}
@@ -939,10 +1107,10 @@ const FreshPackOFlow = () => {
 
         <MusicRankingFooter
           avgScore={metrics.avg}
-          isNAState={!releases.length}
+          isNAState={!metrics.scoredCount}
           pieData={metrics.pie}
           dominantLabel={metrics.dominant.label}
-          dominantColor={!releases.length ? '#647280' : metrics.colors[metrics.dominant.label]}
+          dominantColor={!metrics.scoredCount ? '#647280' : metrics.colors[metrics.dominant.label]}
           tierBase={tierBase}
           tierStats={metrics.tierStats}
         />
@@ -972,6 +1140,7 @@ const FreshPackOFlow = () => {
         }}
         onSave={handleSave}
         initialData={isEditing ? selectedRelease : null}
+        releases={releases}
       />
 
       <ConfirmDeleteModal
