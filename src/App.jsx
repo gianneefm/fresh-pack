@@ -553,7 +553,7 @@ const GOLD_METALLIC = 'linear-gradient(135deg, #8a6414 0%, #f7e08a 18%, #d4af37 
 const isPerfectScore = (score) => score !== null && score !== undefined && score >= 5;
 
 // Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Space Mono и капителью
-const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:[\s.,'’&!?:;()\-–—+/]+[A-Za-z0-9\u00C0-\u024F]+)*/g;
+const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:['’][A-Za-z\u00C0-\u024F]+)*/g;
 
 const MetaText = ({ text }) => {
   const str = String(text ?? '');
@@ -600,17 +600,17 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
             <span
               className={`font-sans font-extrabold tracking-tighter ${isPerfect ? 'text-xs sm:text-sm' : 'text-[9px]'}`}
               style={{ color }}
-            >{scoreText}</span>
+            >{isPerfect ? "#bcf0e8" : scoreText}</span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
         <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
           <h3
-            className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}
+            className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900 }}
           >{<MetaText text={title} />}</h3>
           <p
-            className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}
+            className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400 }}
           >{<MetaText text={artist} />}</p>
         </div>
