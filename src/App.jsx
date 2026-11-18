@@ -607,11 +607,11 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
         <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
-            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900 }}
+            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, wordSpacing: '0.15em' }}
           >{<MetaText text={title} />}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
-            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400 }}
+            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400, wordSpacing: '0.15em' }}
           >{<MetaText text={artist} />}</p>
         </div>
       </div>
