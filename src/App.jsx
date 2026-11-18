@@ -600,7 +600,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
             <span
               className={`font-sans font-extrabold tracking-tighter ${isPerfect ? 'text-xs sm:text-sm' : 'text-[9px]'}`}
               style={{ color: isPerfect ? "#bcf0e8": color }}
-            >{iscoreText}</span>
+            >{scoreText}</span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
