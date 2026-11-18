@@ -10,6 +10,11 @@ const APP_FONT_FAMILY = "'Inter', sans-serif";
 const FONT_LINK_ID = 'app-inter-font';
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap';
 
+// Шрифт метаданных релизов (название и артист). У Zen Antique только начертание 400, поэтому жирность заголовка синтетическая.
+const META_FONT_FAMILY = "'Zen Antique', serif";
+const META_FONT_LINK_ID = 'app-zen-antique-font';
+const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Zen+Antique&display=swap';
+
 const FONT_CSS = `
   :root { --app-font: ${APP_FONT_FAMILY}; }
   html, body, #root, button, input, textarea, select, .font-sans, svg text, svg tspan {
@@ -36,7 +41,11 @@ const useAppFont = () => {
     link.id = FONT_LINK_ID;
     link.rel = 'stylesheet';
     link.href = FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link);
+    const metaLink = document.createElement('link');
+    metaLink.id = META_FONT_LINK_ID;
+    metaLink.rel = 'stylesheet';
+    metaLink.href = META_FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link, metaLink);
   }, []);
 };
 
@@ -45,6 +54,15 @@ const useAppFont = () => {
 const exportElement = async (ref, fileName) => {
   if (!ref.current) return;
   try {
+    if (document.fonts?.load) {
+      // Явно догружаем оба шрифта (латиница + кириллица) до рендера PNG, чтобы экспорт не ушёл на запасной шрифт
+      await Promise.all([
+        document.fonts.load("900 1em 'Inter'", 'AaБб'),
+        document.fonts.load("400 1em 'Inter'", 'AaБб'),
+        document.fonts.load("900 1em 'Zen Antique'", 'AaБб'),
+        document.fonts.load("400 1em 'Zen Antique'", 'AaБб'),
+      ]).catch(() => {});
+    }
     if (document.fonts?.ready) await document.fonts.ready;
     const dataUrl = await toPng(ref.current, {
       quality: 1, pixelRatio: 3, backgroundColor: '#000000', cacheBust: true, skipFonts: false,
@@ -436,13 +454,13 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
 
           <div className="space-y-2">
             <input 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
               placeholder="TITLE" 
               value={formData.title} 
               onChange={e => setFormData({...formData, title: e.target.value})} 
             />
             <input 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white uppercase font-black text-[10px] focus:outline-none focus:border-white/20" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
               placeholder="ARTIST" 
               value={formData.artist} 
               onChange={e => setFormData({...formData, artist: e.target.value})} 
@@ -554,8 +572,14 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
         <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
-          <h3 className={`text-white font-extrabold tracking-tight leading-tight w-full break-words uppercase ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}>{title}</h3>
-          <p className={`text-white/80 font-medium leading-tight mt-1 w-full break-words uppercase ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}>{artist}</p>
+          <h3
+            className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}
+            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, fontSynthesis: 'weight' }}
+          >{title}</h3>
+          <p
+            className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}
+            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400 }}
+          >{artist}</p>
         </div>
       </div>
     </div>
@@ -890,11 +914,11 @@ const FreshPackOFlow = () => {
   }, [weekNumber, weekYear, releases]);
 
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059467", rowBgColor: "#bbf1e0", textColorClass: "text-white" },
-    { label: "POP", icon: TrendingUp, bgColor: "#699405", rowBgColor: "#f0fecd", textColorClass: "text-white" },
-    { label: "MOP", icon: Minus, bgColor: "#c6a006", rowBgColor: "#f0dfbc", textColorClass: "text-white" },
-    { label: "FLOP", icon: TrendingDown, bgColor: "#c64906", rowBgColor: "#efa27b", textColorClass: "text-white" },
-    { label: "STOP", icon: XCircle, bgColor: "#c60606", rowBgColor: "#c87979", textColorClass: "text-white" }
+    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", textColorClass: "text-white" },
+    { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
+    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", textColorClass: "text-white" },
+    { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
   ], []);
 
   const metrics = useMemo(() => {
