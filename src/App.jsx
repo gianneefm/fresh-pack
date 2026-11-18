@@ -15,6 +15,12 @@ const META_FONT_FAMILY = "'Alegreya Sans SC', sans-serif";
 const META_FONT_LINK_ID = 'app-alegreya-sans-sc-font';
 const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@400;900&display=swap';
 
+// Латиница в метаданных набирается Space Mono (у него нет кириллицы, поэтому кириллица остаётся за Alegreya Sans SC).
+// Капитель: font-variant-caps берёт настоящую капитель шрифта, если она есть, иначе браузер синтезирует её (font-synthesis: small-caps).
+const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
+const META_LATIN_LINK_ID = 'app-space-mono-font';
+const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
+
 const FONT_CSS = `
   :root { --app-font: ${APP_FONT_FAMILY}; }
   html, body, #root, button, input, textarea, select, .font-sans, svg text, svg tspan {
@@ -45,7 +51,11 @@ const useAppFont = () => {
     metaLink.id = META_FONT_LINK_ID;
     metaLink.rel = 'stylesheet';
     metaLink.href = META_FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link, metaLink);
+    const latinLink = document.createElement('link');
+    latinLink.id = META_LATIN_LINK_ID;
+    latinLink.rel = 'stylesheet';
+    latinLink.href = META_LATIN_FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink);
   }, []);
 };
 
@@ -61,6 +71,8 @@ const exportElement = async (ref, fileName) => {
         document.fonts.load("400 1em 'Inter'", 'AaБб'),
         document.fonts.load("900 1em 'Alegreya Sans SC'", 'AaБб'),
         document.fonts.load("400 1em 'Alegreya Sans SC'", 'AaБб'),
+        document.fonts.load("700 1em 'Space Mono'", 'AaBb'),
+        document.fonts.load("400 1em 'Space Mono'", 'AaBb'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -540,6 +552,27 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm }) => {
 const GOLD_METALLIC = 'linear-gradient(135deg, #8a6414 0%, #f7e08a 18%, #d4af37 36%, #fff6c4 50%, #c9a227 64%, #f1d36b 82%, #8a6414 100%)';
 const isPerfectScore = (score) => score !== null && score !== undefined && score >= 5;
 
+// Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Space Mono и капителью
+const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:[\s.,'’&!?:;()\-–—+/]+[A-Za-z0-9\u00C0-\u024F]+)*/g;
+
+const MetaText = ({ text }) => {
+  const str = String(text ?? '');
+  const parts = [];
+  let last = 0;
+  for (const m of str.matchAll(META_LATIN_RUN)) {
+    if (m.index > last) parts.push(str.slice(last, m.index));
+    parts.push(
+      <span
+        key={m.index}
+        style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
+      >{m[0]}</span>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < str.length) parts.push(str.slice(last));
+  return <>{parts}</>;
+};
+
 const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
   const hasScore = score !== null && score !== undefined;
   const isPerfect = isPerfectScore(score);
@@ -575,11 +608,11 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900 }}
-          >{title}</h3>
+          >{<MetaText text={title} />}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400 }}
-          >{artist}</p>
+          >{<MetaText text={artist} />}</p>
         </div>
       </div>
     </div>
