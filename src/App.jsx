@@ -10,10 +10,10 @@ const APP_FONT_FAMILY = "'Inter', sans-serif";
 const FONT_LINK_ID = 'app-inter-font';
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap';
 
-// Шрифт метаданных релизов (название и артист). У Zen Antique только начертание 400, поэтому жирность заголовка синтетическая.
-const META_FONT_FAMILY = "'Zen Antique', serif";
-const META_FONT_LINK_ID = 'app-zen-antique-font';
-const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Zen+Antique&display=swap';
+// Шрифт метаданных релизов (название и артист). Playfair Display SC: настоящая капитель (строчные буквы рисуются капителью), кириллица, начертания 400/700/900.
+const META_FONT_FAMILY = "'Playfair Display SC', serif";
+const META_FONT_LINK_ID = 'app-playfair-sc-font';
+const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Playfair+Display+SC:wght@400;900&display=swap';
 
 const FONT_CSS = `
   :root { --app-font: ${APP_FONT_FAMILY}; }
@@ -59,8 +59,8 @@ const exportElement = async (ref, fileName) => {
       await Promise.all([
         document.fonts.load("900 1em 'Inter'", 'AaБб'),
         document.fonts.load("400 1em 'Inter'", 'AaБб'),
-        document.fonts.load("900 1em 'Zen Antique'", 'AaБб'),
-        document.fonts.load("400 1em 'Zen Antique'", 'AaБб'),
+        document.fonts.load("900 1em 'Playfair Display SC'", 'AaБб'),
+        document.fonts.load("400 1em 'Playfair Display SC'", 'AaБб'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -574,7 +574,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
         <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-sm sm:text-base' : 'text-[10px]'}`}
-            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, fontSynthesis: 'weight' }}
+            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900 }}
           >{title}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-[10px] sm:text-xs' : 'text-[8px]'}`}
