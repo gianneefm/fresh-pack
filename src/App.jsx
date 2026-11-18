@@ -21,10 +21,19 @@ const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
 const META_LATIN_LINK_ID = 'app-space-mono-font';
 const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
 
+// В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Space Mono, кириллица из Alegreya Sans SC.
+// Пробелы в таком стеке рисует Space Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
+const META_INPUT_WORD_SPACING = '-0.25em';
+
 const FONT_CSS = `
   :root { --app-font: ${APP_FONT_FAMILY}; }
   html, body, #root, button, input, textarea, select, .font-sans, svg text, svg tspan {
     font-family: var(--app-font) !important;
+  }
+  input.meta-input {
+    font-family: ${META_LATIN_FONT_FAMILY} !important;
+    font-variant-caps: small-caps;
+    font-synthesis: small-caps;
   }
   html, body {
     font-synthesis: none;
@@ -466,13 +475,15 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
 
           <div className="space-y-2">
             <input 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
+              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white tracking-tight text-[10px] focus:outline-none focus:border-white/20" 
+              style={{ fontWeight: 900, wordSpacing: META_INPUT_WORD_SPACING }}
               placeholder="TITLE" 
               value={formData.title} 
               onChange={e => setFormData({...formData, title: e.target.value})} 
             />
             <input 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
+              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white tracking-tight text-[10px] focus:outline-none focus:border-white/20" 
+              style={{ fontWeight: 400, wordSpacing: META_INPUT_WORD_SPACING }}
               placeholder="ARTIST" 
               value={formData.artist} 
               onChange={e => setFormData({...formData, artist: e.target.value})} 
