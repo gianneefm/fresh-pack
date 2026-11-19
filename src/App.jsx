@@ -566,8 +566,25 @@ const isPerfectScore = (score) => score !== null && score !== undefined && score
 // Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Space Mono и капителью
 const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:['’][A-Za-z\u00C0-\u024F]+)*/g;
 
+// Латинские буквы, внешне неотличимые от кириллических (частая причина «неправильной» у/У и подобных букв в кириллических словах).
+// Только для отображения: данные релиза не меняются.
+const LATIN_TO_CYRILLIC_LOOKALIKES = {
+  A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У',
+  a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', x: 'х', y: 'у',
+};
+const META_WORD_RE = /[A-Za-z\u0400-\u04FF]+/g;
+const META_CYRILLIC_RE = /[\u0400-\u04FF]/;
+
+// Если в слове есть кириллица, латинские двойники внутри него заменяются на кириллические буквы
+const normalizeMixedScript = (str) =>
+  str.replace(META_WORD_RE, (word) =>
+    META_CYRILLIC_RE.test(word)
+      ? word.replace(/[A-Za-z]/g, (ch) => LATIN_TO_CYRILLIC_LOOKALIKES[ch] ?? ch)
+      : word
+  );
+
 const MetaText = ({ text }) => {
-  const str = String(text ?? '');
+  const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
   let last = 0;
   for (const m of str.matchAll(META_LATIN_RUN)) {
