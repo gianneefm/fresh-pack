@@ -623,17 +623,26 @@ const RateModal = ({ isOpen, onClose, onSave }) => {
   );
 };
 
-// 5. Список оценок релиза (строки заблокированы, пока не нажат карандаш; галочка сохраняет, крестик удаляет)
+// 5. Список оценок релиза (строки заблокированы, пока не нажат карандаш; галочка сохраняет, крестик удаляет;
+// в режиме редактирования крестик очищает поле). Кнопки расположены внутри поля у его правого края.
 const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
   const [editingIndex, setEditingIndex] = useState(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
+  const editInputRef = useRef(null);
 
   React.useEffect(() => {
     setEditingIndex(null);
     setDraft('');
     setError('');
   }, [isOpen]);
+
+  // При входе в режим редактирования фокус переходит в разблокированное поле
+  React.useEffect(() => {
+    if (editingIndex !== null && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [editingIndex]);
 
   if (!isOpen || !release) return null;
 
@@ -666,6 +675,13 @@ const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
     setError('');
   };
 
+  // В режиме редактирования крестик очищает поле
+  const handleClearDraft = () => {
+    setDraft('');
+    setError('');
+    if (editInputRef.current) editInputRef.current.focus();
+  };
+
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-[#111] w-full max-w-xs rounded-[2rem] border border-white/10 shadow-2xl font-sans overflow-hidden">
@@ -694,38 +710,41 @@ const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
                 <span className="w-5 text-[9px] font-black text-white/30 text-right">{index + 1}</span>
                 <div className="relative flex-grow">
                   <input
+                    ref={isEditingRow ? editInputRef : null}
                     type="number"
                     min="0"
                     max="1000"
                     step="0.1"
                     disabled={!isEditingRow}
-                    className={`w-full border rounded-xl px-3 py-2 font-black text-[10px] focus:outline-none ${isEditingRow ? 'bg-white/10 border-white/30 text-white' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}
+                    className={`w-full border rounded-xl pl-3 pr-16 py-2 font-black text-[10px] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isEditingRow ? 'bg-white/10 border-white/30 text-white' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}
                     value={isEditingRow ? draft : ratingToText(rating)}
                     onChange={e => setDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && isEditingRow) { e.preventDefault(); confirmEdit(); } }}
                   />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {isEditingRow ? (
+                      <button
+                        onClick={confirmEdit}
+                        className="p-1.5 rounded-full text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                      >
+                        <Check size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(index)}
+                        className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={isEditingRow ? handleClearDraft : () => handleDeleteRow(index)}
+                      className="p-1.5 rounded-full text-red-500/70 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
-                {isEditingRow ? (
-                  <button
-                    onClick={confirmEdit}
-                    className="p-2 rounded-full text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                  >
-                    <Check size={16} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => startEdit(index)}
-                    className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                )}
-                <button
-                  onClick={() => handleDeleteRow(index)}
-                  className="p-2 rounded-full text-red-500/70 hover:text-red-500 hover:bg-red-500/10 transition-all"
-                >
-                  <X size={16} />
-                </button>
               </div>
             );
           })}
