@@ -1,5 +1,5 @@
 import React, { useMemo, useId, useRef, useState } from 'react';
-import { Star, TrendingUp, Minus, TrendingDown, XCircle, Plus, X, Edit2, Trash2, AlertTriangle, Crown } from 'lucide-react';
+import { Star, TrendingUp, Minus, TrendingDown, XCircle, Plus, X, Edit2, Trash2, AlertTriangle, Crown, Pencil, Check, ListOrdered } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { toPng } from 'html-to-image';
 
@@ -180,32 +180,54 @@ const getReleaseKey = (title, artist) => `${normalizeKeyPart(title)}\u0000${norm
 // Релизы без оценки (score === null) идут в конец
 const compareReleases = (a, b) => (b.score ?? -1) - (a.score ?? -1);
 
-// 5-балльная оценка -> текст для поля ввода (1000-балльная шкала), без округления и без float-мусора
-const scoreToInputText = (score) =>
-  score === null || score === undefined ? '' : String(parseFloat((score * 200).toFixed(6)));
+// Оценки хранятся в списке release.ratings в 1000-балльной шкале (с десятыми долями).
+// Итоговая оценка релиза (release.score, 5-балльная шкала) = среднее по списку / 200.
+const clampRating = (value) => Math.max(0, Math.min(1000, value));
+
+// Текст из поля ввода -> число 0–1000 (или null, если ввод некорректен)
+const parseRating = (text) => {
+  const n = parseFloat(String(text ?? '').trim().replace(',', '.'));
+  return Number.isFinite(n) ? clampRating(n) : null;
+};
+
+// Число 0–1000 -> текст для поля ввода, без float-мусора
+const ratingToText = (value) =>
+  value === null || value === undefined ? '' : String(parseFloat(Number(value).toFixed(6)));
+
+// Список оценок (1000-балльная шкала) -> итоговая 5-балльная оценка (null, если оценок нет)
+const computeScore = (ratings) => {
+  if (!Array.isArray(ratings) || ratings.length === 0) return null;
+  const mean = ratings.reduce((acc, v) => acc + v, 0) / ratings.length;
+  return Math.max(0, Math.min(5, mean / 200));
+};
 
 const normalizeRelease = (item) => {
-  const rawScore = item?.score;
-  const hasScore =
-    rawScore !== null && rawScore !== undefined && rawScore !== '' && Number.isFinite(Number(rawScore));
-  const score = hasScore ? Math.max(0, Math.min(5, Number(rawScore))) : null;
+  let ratings = [];
 
-  const release = {
-    title: typeof item?.title === 'string' ? item.title : '',
-    artist: typeof item?.artist === 'string' ? item.artist : '',
-    coverLink: typeof item?.coverLink === 'string' ? item.coverLink : '',
-    score,
-  };
-
-  // Оценка в том виде, в котором её ввели (чтобы при редактировании она не менялась)
-  if (score !== null && (typeof item?.inputScore === 'string' || typeof item?.inputScore === 'number')) {
-    const parsed = parseFloat(item.inputScore);
-    if (Number.isFinite(parsed) && Math.abs(Math.max(0, Math.min(1000, parsed)) / 200 - score) < 1e-9) {
-      release.inputScore = String(item.inputScore);
+  if (Array.isArray(item?.ratings)) {
+    ratings = item.ratings
+      .filter(v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)))
+      .map(v => clampRating(Number(v)));
+  } else {
+    // Старый формат (одиночная оценка): превращаем в список из одной оценки
+    const rawScore = item?.score;
+    const hasScore =
+      rawScore !== null && rawScore !== undefined && rawScore !== '' && Number.isFinite(Number(rawScore));
+    if (hasScore) {
+      const fromScore = Math.max(0, Math.min(5, Number(rawScore))) * 200;
+      const parsedInput = parseFloat(item?.inputScore);
+      const useInput = Number.isFinite(parsedInput) && Math.abs(clampRating(parsedInput) - fromScore) < 1e-6;
+      ratings = [useInput ? clampRating(parsedInput) : parseFloat(fromScore.toFixed(6))];
     }
   }
 
-  return release;
+  return {
+    title: typeof item?.title === 'string' ? item.title : '',
+    artist: typeof item?.artist === 'string' ? item.artist : '',
+    coverLink: typeof item?.coverLink === 'string' ? item.coverLink : '',
+    ratings,
+    score: computeScore(ratings),
+  };
 };
 
 const sanitizeReleases = (items) => {
@@ -367,22 +389,20 @@ const getReleaseWeight = (score, label) => {
 
 // 1. Форма добавления/редактирования (с крестиком)
 const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] }) => {
-  const [formData, setFormData] = useState({ title: '', artist: '', score: '', coverLink: '' });
+  const [formData, setFormData] = useState({ title: '', artist: '', coverLink: '' });
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
-  // При открытии модалки для редактирования показываем оценку в том виде, в котором её ввели (без округления)
   React.useEffect(() => { 
     setError('');
     if (initialData) {
       setFormData({
         title: initialData.title,
         artist: initialData.artist,
-        coverLink: initialData.coverLink || '',
-        score: initialData.inputScore ?? scoreToInputText(initialData.score)
+        coverLink: initialData.coverLink || ''
       });
     } else {
-      setFormData({ title: '', artist: '', score: '', coverLink: '' });
+      setFormData({ title: '', artist: '', coverLink: '' });
     }
   }, [initialData, isOpen]);
 
@@ -401,23 +421,10 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
     e.preventDefault();
     const title = formData.title.trim();
     const artist = formData.artist.trim();
-    const scoreText = String(formData.score ?? '').trim();
 
     if (!title || !artist) { 
       setError('Fill title and artist'); 
       return; 
-    }
-
-    // Оценка необязательна: пустое поле -> релиз без оценки (категория NOP)
-    let score = null;
-    if (scoreText !== '') {
-      const rawScore = parseFloat(scoreText.replace(',', '.')); // Пользователь ввел, например, 850
-      if (isNaN(rawScore)) {
-        setError('Invalid score');
-        return;
-      }
-      // Конвертация из 1000-балльной в 5-балльную шкалу для хранения в списке
-      score = Math.max(0, Math.min(5, (rawScore / 1000) * 5));
     }
 
     // Запрет на добавление релизов с одинаковыми названием и артистом
@@ -432,12 +439,11 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
       return;
     }
 
-    const payload = { title, artist, coverLink: formData.coverLink, score };
-    if (score !== null) payload.inputScore = scoreText;
+    const payload = { title, artist, coverLink: formData.coverLink };
 
     onSave(payload);
     
-    setFormData({ title: '', artist: '', score: '', coverLink: '' });
+    setFormData({ title: '', artist: '', coverLink: '' });
     setError('');
     onClose();
   };
@@ -488,21 +494,6 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
               value={formData.artist} 
               onChange={e => setFormData({...formData, artist: e.target.value})} 
             />
-            
-            {/* Поле ввода для 1000-балльной шкалы */}
-            <div className="relative">
-              <input 
-                type="number" 
-                min="0"
-                max="1000"
-                step="0.1"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20" 
-                placeholder="SCORE (0-1000, OPTIONAL)" 
-                value={formData.score} 
-                onChange={e => setFormData({...formData, score: e.target.value})} 
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-white/20 font-black">/1000</span>
-            </div>
           </div>
 
           {error && <p className="text-red-500 text-[8px] font-black uppercase text-center">{error}</p>}
@@ -519,12 +510,19 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
   );
 };
 
-// 2. Меню действий (Изменить/Удалить)
-const ActionMenuModal = ({ isOpen, onClose, onEdit, onDelete }) => {
+// 2. Меню действий (Оценить/Оценки/Изменить/Удалить)
+const ActionMenuModal = ({ isOpen, onClose, onRate, onScores, ratingsCount = 0, onEdit, onDelete }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-[#111] w-full max-w-[200px] rounded-3xl border border-white/10 shadow-2xl p-2 font-sans">
+        <button onClick={onRate} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-2xl transition-all text-white/80 hover:text-white">
+          <Star size={18} /> <span className="text-xs font-black uppercase tracking-widest">Rate</span>
+        </button>
+        <button onClick={onScores} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-2xl transition-all text-white/80 hover:text-white">
+          <ListOrdered size={18} /> <span className="text-xs font-black uppercase tracking-widest">Scores</span>
+          <span className="ml-auto text-[10px] font-black text-white/30">{ratingsCount}</span>
+        </button>
         <button onClick={onEdit} className="w-full flex items-center gap-3 p-4 hover:bg-white/5 rounded-2xl transition-all text-white/80 hover:text-white">
           <Edit2 size={18} /> <span className="text-xs font-black uppercase tracking-widest">Edit</span>
         </button>
@@ -551,6 +549,188 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm }) => {
         <div className="flex flex-col gap-3">
           <button onClick={onConfirm} className="w-full py-4 bg-red-500 hover:bg-red-600 rounded-2xl font-black uppercase tracking-widest text-white transition-all shadow-lg shadow-red-500/20">Confirm Delete</button>
           <button onClick={onClose} className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black uppercase tracking-widest text-white/40 transition-all">Go Back</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 4. Добавление оценки (одно поле: оценка в 1000-балльной шкале, допускаются десятые доли)
+const RateModal = ({ isOpen, onClose, onSave }) => {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    setValue('');
+    setError('');
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const rating = parseRating(value);
+    if (rating === null) {
+      setError('Invalid score');
+      return;
+    }
+    onSave(rating);
+    setValue('');
+    setError('');
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#111] w-full max-w-xs rounded-[2rem] border border-white/10 shadow-2xl font-sans overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/70">Rate Release</span>
+          <button
+            onClick={onClose}
+            className="text-white/30 hover:text-white hover:bg-white/5 p-1 rounded-full transition-all"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="0.1"
+              autoFocus
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-[10px] focus:outline-none focus:border-white/20"
+              placeholder="SCORE (0-1000)"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-white/20 font-black">/1000</span>
+          </div>
+
+          {error && <p className="text-red-500 text-[8px] font-black uppercase text-center">{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-white bg-white/10 hover:bg-white/20 transition-all text-[10px] border border-white/5"
+          >
+            Add Score
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// 5. Список оценок релиза (строки заблокированы, пока не нажат карандаш; галочка сохраняет, крестик удаляет)
+const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    setEditingIndex(null);
+    setDraft('');
+    setError('');
+  }, [isOpen]);
+
+  if (!isOpen || !release) return null;
+
+  const ratings = release.ratings || [];
+  const hasScore = release.score !== null && release.score !== undefined;
+  const scoreText = hasScore ? (release.score.toFixed(3).endsWith('0') ? release.score.toFixed(2) : release.score.toFixed(3)) : '—';
+
+  const startEdit = (index) => {
+    setEditingIndex(index);
+    setDraft(ratingToText(ratings[index]));
+    setError('');
+  };
+
+  const confirmEdit = () => {
+    const rating = parseRating(draft);
+    if (rating === null) {
+      setError('Invalid score');
+      return;
+    }
+    onUpdate(editingIndex, rating);
+    setEditingIndex(null);
+    setDraft('');
+    setError('');
+  };
+
+  const handleDeleteRow = (index) => {
+    onDelete(index);
+    setEditingIndex(null);
+    setDraft('');
+    setError('');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#111] w-full max-w-xs rounded-[2rem] border border-white/10 shadow-2xl font-sans overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/70">Scores</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black tracking-widest" style={{ color: hasScore ? getDynamicColor(release.score) : '#4B5563' }}>{scoreText}</span>
+            <button
+              onClick={onClose}
+              className="text-white/30 hover:text-white hover:bg-white/5 p-1 rounded-full transition-all"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-2 max-h-[60vh] overflow-y-auto">
+          {ratings.length === 0 && (
+            <p className="text-center text-gray-500/80 font-black uppercase text-[10px] tracking-widest py-4">NO SCORES YET</p>
+          )}
+
+          {ratings.map((rating, index) => {
+            const isEditingRow = editingIndex === index;
+            return (
+              <div key={index} className="flex items-center gap-2">
+                <span className="w-5 text-[9px] font-black text-white/30 text-right">{index + 1}</span>
+                <div className="relative flex-grow">
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    step="0.1"
+                    disabled={!isEditingRow}
+                    className={`w-full border rounded-xl px-3 py-2 font-black text-[10px] focus:outline-none ${isEditingRow ? 'bg-white/10 border-white/30 text-white' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}
+                    value={isEditingRow ? draft : ratingToText(rating)}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && isEditingRow) { e.preventDefault(); confirmEdit(); } }}
+                  />
+                </div>
+                {isEditingRow ? (
+                  <button
+                    onClick={confirmEdit}
+                    className="p-2 rounded-full text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                  >
+                    <Check size={16} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startEdit(index)}
+                    className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeleteRow(index)}
+                  className="p-2 rounded-full text-red-500/70 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            );
+          })}
+
+          {error && <p className="text-red-500 text-[8px] font-black uppercase text-center pt-1">{error}</p>}
         </div>
       </div>
     </div>
@@ -948,8 +1128,16 @@ const FreshPackOFlow = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isRateOpen, setIsRateOpen] = useState(false);
+  const [isScoresOpen, setIsScoresOpen] = useState(false);
   const [selectedRelease, setSelectedRelease] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Актуальная версия выбранного релиза (после изменения списка оценок selectedRelease устаревает)
+  const currentRelease = useMemo(() => {
+    if (!selectedRelease) return null;
+    return releases.find(r => r.title === selectedRelease.title && r.artist === selectedRelease.artist) || selectedRelease;
+  }, [releases, selectedRelease]);
 
   const weekInfo = useMemo(() => {
     const { startDate, endDate } = getDatesFromWeekNumber(weekNumber, weekYear);
@@ -1022,17 +1210,19 @@ const FreshPackOFlow = () => {
 
   const handleSave = (data) => {
     if (isEditing) {
+      // При редактировании названия/артиста/обложки список оценок сохраняется
       setReleases(prev =>
         prev
           .map(r => (
             r.title === selectedRelease.title && r.artist === selectedRelease.artist
-              ? data
+              ? { ...data, ratings: r.ratings || [], score: r.score ?? null }
               : r
           ))
           .sort(compareReleases)
       );
     } else {
-      setReleases(prev => [...prev, data].sort(compareReleases));
+      // Новый релиз создаётся без оценок (категория NOP), оценки добавляются через пункт меню Rate
+      setReleases(prev => [...prev, { ...data, ratings: [], score: null }].sort(compareReleases));
     }
 
     setIsEditing(false);
@@ -1045,6 +1235,32 @@ const FreshPackOFlow = () => {
     );
     setIsConfirmOpen(false);
     setSelectedRelease(null);
+  };
+
+  // Изменение списка оценок выбранного релиза; итоговая оценка пересчитывается как среднее
+  const updateSelectedRatings = (updater) => {
+    if (!selectedRelease) return;
+    setReleases(prev =>
+      prev
+        .map(r => {
+          if (!(r.title === selectedRelease.title && r.artist === selectedRelease.artist)) return r;
+          const ratings = updater(r.ratings || []);
+          return { ...r, ratings, score: computeScore(ratings) };
+        })
+        .sort(compareReleases)
+    );
+  };
+
+  const handleAddRating = (value) => {
+    updateSelectedRatings(ratings => [...ratings, value]);
+  };
+
+  const handleUpdateRating = (index, value) => {
+    updateSelectedRatings(ratings => ratings.map((v, i) => (i === index ? value : v)));
+  };
+
+  const handleDeleteRating = (index) => {
+    updateSelectedRatings(ratings => ratings.filter((_, i) => i !== index));
   };
 
   const handleExportJson = () => {
@@ -1093,6 +1309,8 @@ const FreshPackOFlow = () => {
         setIsFormOpen(false);
         setIsMenuOpen(false);
         setIsConfirmOpen(false);
+        setIsRateOpen(false);
+        setIsScoresOpen(false);
         setSelectedRelease(null);
         setIsEditing(false);
       } catch (err) {
@@ -1127,6 +1345,8 @@ const FreshPackOFlow = () => {
     setIsFormOpen(false);
     setIsMenuOpen(false);
     setIsConfirmOpen(false);
+    setIsRateOpen(false);
+    setIsScoresOpen(false);
     setSelectedRelease(null);
     setIsEditing(false);
   };
@@ -1205,6 +1425,15 @@ const FreshPackOFlow = () => {
       <ActionMenuModal
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
+        ratingsCount={currentRelease?.ratings?.length ?? 0}
+        onRate={() => {
+          setIsMenuOpen(false);
+          setIsRateOpen(true);
+        }}
+        onScores={() => {
+          setIsMenuOpen(false);
+          setIsScoresOpen(true);
+        }}
         onEdit={() => {
           setIsMenuOpen(false);
           setIsEditing(true);
@@ -1226,6 +1455,26 @@ const FreshPackOFlow = () => {
         onSave={handleSave}
         initialData={isEditing ? selectedRelease : null}
         releases={releases}
+      />
+
+      <RateModal
+        isOpen={isRateOpen}
+        onClose={() => {
+          setIsRateOpen(false);
+          setSelectedRelease(null);
+        }}
+        onSave={handleAddRating}
+      />
+
+      <ScoresModal
+        isOpen={isScoresOpen}
+        onClose={() => {
+          setIsScoresOpen(false);
+          setSelectedRelease(null);
+        }}
+        release={currentRelease}
+        onUpdate={handleUpdateRating}
+        onDelete={handleDeleteRating}
       />
 
       <ConfirmDeleteModal
