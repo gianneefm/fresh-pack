@@ -889,13 +889,13 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
   );
 };
 
-const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, isNop = false, releases, computedColor, tierRatio, onRowClick, onReleaseClick }) => {
+const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, listBgColor, textColorClass, isNop = false, releases, computedColor, emptyColor, tierRatio, onRowClick, onReleaseClick }) => {
   const rowRef = useRef(null);
   const avg = releases.length ? releases.reduce((acc, r) => acc + (r.score ?? 0), 0) / releases.length : 0;
   return (
     <section ref={rowRef} className="w-full mb-8 last:mb-0 pb-8 font-sans">
       <div classNa11me="bg-black p-0.5 rounded-3xl"> 
-        <div className={`flex flex-col sm:flex-row rounded-2xl overflow-hidden border border-white/10 shadow-md relative group/row transition-all`} style={{ background: `${rowBgColor}` }}>
+        <div className={`flex flex-col sm:flex-row rounded-2xl overflow-hidden border border-white/10 shadow-md relative group/row transition-all`} style={{ background: `${listBgColor ?? rowBgColor}` }}>
           <div className={`flex flex-col items-center justify-center py-6 sm:py-0 sm:w-28 md:w-32 flex-shrink-0 gap-1 ${textColorClass} shadow-xl ${isNop ? '' : 'cursor-pointer hover:brightness-110'}`} 
                onClick={isNop ? undefined : () => exportElement(rowRef, `Tier-${label}`)} style={{ background: `${bgColor}` }}>
             {Icon && <Icon className="size-6 sm:size-7 opacity-90" />}
@@ -921,14 +921,14 @@ const TierRow = ({ label, icon: Icon, bgColor, rowBgColor, textColorClass, isNop
         </div>
       </div>
       {!isNop && (
-        <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor}
+        <RankFooter avgScore={avg} isNAState={!releases.length} tierRatio={tierRatio} tierLabel={label} computedColor={computedColor} emptyColor={emptyColor}
                     labelText={<div className="flex flex-col items-start uppercase font-black tracking-widest text-sm leading-tight"><span style={{ color: computedColor }}>{label}</span><span className="text-gray-400">RATIO</span></div>} />
       )}
     </section>
   );
 };
 
-const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, customGradientStops = null, starColor, onStarClick }) => {
+const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, customGradientStops = null, starColor, emptyColor = '#374151', onStarClick }) => {
   const uniqueId = useId().replace(/:/g, "");
   const fillPercent = Math.max(0, Math.min(100, percentage));
   const activeColor = starColor || (isNA ? '#4B5563' : getDynamicColor(score));
@@ -951,7 +951,7 @@ const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, c
           <clipPath id={`clip-${uniqueId}`}><path d={starPath} /></clipPath>
           <linearGradient id={`grad-${uniqueId}`} x1="0%" y1="0%" x2="100%" y2="0%">
             {customGradientStops ? customGradientStops.map((s, i) => <stop key={i} offset={`${s.offset}%`} stopColor={s.color} />) :
-              <><stop offset="0%" stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor="#374151" /><stop offset="100%" stopColor="#374151" /></>}
+              <><stop offset="0%" stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor={activeColor} /><stop offset={`${fillPercent}%`} stopColor={emptyColor} /><stop offset="100%" stopColor={emptyColor} /></>}
           </linearGradient>
         </defs>
         <path d={starPath} fill={`url(#grad-${uniqueId})`} />
@@ -964,13 +964,13 @@ const GradientStar = ({ percentage, score, sizeClass = 'size-7', isNA = false, c
   );
 };
 
-const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor }) => {
+const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, computedColor, emptyColor }) => {
   const footerStarPercentage = isNAState ? 100 : tierRatio * 100;
   return (
     <div className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans">
       <div className="flex-shrink-0 font-bold">{labelText}</div>
       <div className="flex flex-col items-center gap-1">
-        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor}/>
+        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor} emptyColor={emptyColor}/>
         {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
       </div>
     </div>
@@ -1224,12 +1224,14 @@ const FreshPackOFlow = () => {
     }
   }, [weekNumber, weekYear, releases]);
 
+  // rowBgColor используется только для расчёта цветов звёзд в футерах тиров и секторов диаграммы,
+  // listBgColor (примерные hex-цвета из w27: Tailwind-цвет с 60% прозрачностью поверх чёрного фона) используется как фон строки с карточками.
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", textColorClass: "text-white" },
-    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", textColorClass: "text-white" },
-    { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", textColorClass: "text-white" },
-    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", textColorClass: "text-white" },
-    { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", textColorClass: "text-white" }
+    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", listBgColor: "#0A6F4D", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", listBgColor: "#4B5C23", textColorClass: "text-white" },
+    { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", listBgColor: "#935F07", textColorClass: "text-white" },
+    { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", listBgColor: "#95450D", textColorClass: "text-white" },
+    { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", listBgColor: "#841717", textColorClass: "text-white" }
   ], []);
 
   const metrics = useMemo(() => {
@@ -1255,12 +1257,15 @@ const FreshPackOFlow = () => {
         ratio: totalW > 0 ? wNum / totalW : 0,
         val: wNum,
         computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, scored.length),
+        // Цвет звезды тира в пустом состоянии (0 релизов в тире): им закрашивается не заполненная часть звезды
+        emptyColor: getTierFooterColor(t.rowBgColor, t.bgColor, 0, 1),
       };
     });
 
     return {
       grouped,
       colors: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.computedColor }), {}),
+      emptyColors: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.emptyColor }), {}),
       ratios: tierStats.reduce((a, s) => ({ ...a, [s.label]: s.ratio }), {}),
       pie: tierStats.map(s => ({ name: s.label, value: s.val, color: s.computedColor })),
       dominant: tierStats.reduce((p, c) => (c.val > p.val ? c : p), { val: -1 }),
@@ -1459,6 +1464,7 @@ const FreshPackOFlow = () => {
               releases={metrics.grouped[t.label]}
               tierRatio={metrics.ratios[t.label]}
               computedColor={metrics.colors[t.label]}
+              emptyColor={metrics.emptyColors[t.label]}
               onRowClick={() => {
                 setIsEditing(false);
                 setSelectedRelease(null);
