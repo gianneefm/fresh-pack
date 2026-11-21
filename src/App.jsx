@@ -23,9 +23,16 @@ const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mon
 
 // Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
 // Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
+// Эти константы используются только полем ввода в форме (input.meta-input).
 const META_AMP_FONT_FAMILY = "'Archivo', sans-serif";
 const META_AMP_LINK_ID = 'app-archivo-amp-font';
 const META_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;900&text=%26&display=swap';
+
+// Амперсанд в карточках релизов: отдельный шрифт с классическим начертанием «&» (антиква).
+// Подгружается подмножество, содержащее только символ & (text=%26). Поле ввода в форме эти константы не использует.
+const CARD_AMP_FONT_FAMILY = "'Libre Baskerville', serif";
+const CARD_AMP_LINK_ID = 'app-libre-baskerville-amp-font';
+const CARD_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&text=%26&display=swap';
 
 // В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Space Mono, кириллица из Alegreya Sans SC.
 // Пробелы в таком стеке рисует Space Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
@@ -74,7 +81,11 @@ const useAppFont = () => {
     ampLink.id = META_AMP_LINK_ID;
     ampLink.rel = 'stylesheet';
     ampLink.href = META_AMP_FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink);
+    const cardAmpLink = document.createElement('link');
+    cardAmpLink.id = CARD_AMP_LINK_ID;
+    cardAmpLink.rel = 'stylesheet';
+    cardAmpLink.href = CARD_AMP_FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink, cardAmpLink);
   }, []);
 };
 
@@ -94,6 +105,8 @@ const exportElement = async (ref, fileName) => {
         document.fonts.load("400 1em 'Space Mono'", 'AaBb'),
         document.fonts.load("900 1em 'Archivo'", '&'),
         document.fonts.load("400 1em 'Archivo'", '&'),
+        document.fonts.load("700 1em 'Libre Baskerville'", '&'),
+        document.fonts.load("400 1em 'Libre Baskerville'", '&'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -814,14 +827,14 @@ const MetaText = ({ text }) => {
     if (last < segment.length) parts.push(segment.slice(last));
   };
 
-  // Амперсанд выделяется в отдельный span с шрифтом, у которого классическое начертание «&»
+  // Амперсанд в карточках выделяется в отдельный span с шрифтом, у которого классическое начертание «&»
   let pos = 0;
   str.split('&').forEach((segment, i, arr) => {
     pushSegment(segment, pos);
     pos += segment.length;
     if (i < arr.length - 1) {
       parts.push(
-        <span key={`a-${pos}`} style={{ fontFamily: META_AMP_FONT_FAMILY }}>&amp;</span>
+        <span key={`a-${pos}`} style={{ fontFamily: CARD_AMP_FONT_FAMILY, fontVariantCaps: 'normal', fontStyle: 'normal' }}>&amp;</span>
       );
       pos += 1;
     }
