@@ -970,8 +970,7 @@ const RankFooter = ({ avgScore, isNAState, tierRatio, tierLabel, labelText, comp
     <div className="flex flex-row items-center justify-center p-4 select-none bg-black rounded-2xl border border-white/10 backdrop-blur-md mt-2 gap-8 text-center font-sans">
       <div className="flex-shrink-0 font-bold">{labelText}</div>
       <div className="flex flex-col items-center gap-1">
-        {/* Для непустого тира не закрашенная часть звезды остаётся серой по умолчанию */}
-        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor} emptyColor={isNAState ? emptyColor : undefined}/>
+        <GradientStar percentage={footerStarPercentage} score={avgScore} sizeClass="size-10 sm:size-12" isNA={false} starColor={computedColor} emptyColor={emptyColor}/>
         {!isNAState && <span className="font-sans text-base sm:text-lg font-black tracking-tighter" style={{ color: computedColor }}>{(tierRatio * 100).toFixed(2)}%</span>}
       </div>
     </div>
@@ -1258,8 +1257,8 @@ const FreshPackOFlow = () => {
         ratio: totalW > 0 ? wNum / totalW : 0,
         val: wNum,
         computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, scored.length),
-        // Цвет звезды тира в пустом состоянии (0 релизов в тире)
-        emptyColor: getTierFooterColor(t.rowBgColor, t.bgColor, 0, 1),
+        // Цвет не закрашенной части звезды в футере тира
+        emptyColor: '#b0afac',
       };
     });
 
