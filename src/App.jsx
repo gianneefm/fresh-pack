@@ -21,6 +21,12 @@ const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
 const META_LATIN_LINK_ID = 'app-space-mono-font';
 const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
 
+// Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
+// Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
+const META_AMP_FONT_FAMILY = "'Archivo', sans-serif";
+const META_AMP_LINK_ID = 'app-archivo-amp-font';
+const META_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;900&text=%26&display=swap';
+
 // В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Space Mono, кириллица из Alegreya Sans SC.
 // Пробелы в таком стеке рисует Space Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
 const META_INPUT_WORD_SPACING = '-0.25em';
@@ -31,7 +37,7 @@ const FONT_CSS = `
     font-family: var(--app-font) !important;
   }
   input.meta-input {
-    font-family: ${META_LATIN_FONT_FAMILY} !important;
+    font-family: ${META_AMP_FONT_FAMILY.replace(", sans-serif", "")}, ${META_LATIN_FONT_FAMILY} !important;
     font-variant-caps: small-caps;
     font-synthesis: small-caps;
   }
@@ -64,7 +70,11 @@ const useAppFont = () => {
     latinLink.id = META_LATIN_LINK_ID;
     latinLink.rel = 'stylesheet';
     latinLink.href = META_LATIN_FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink);
+    const ampLink = document.createElement('link');
+    ampLink.id = META_AMP_LINK_ID;
+    ampLink.rel = 'stylesheet';
+    ampLink.href = META_AMP_FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink);
   }, []);
 };
 
@@ -82,6 +92,8 @@ const exportElement = async (ref, fileName) => {
         document.fonts.load("400 1em 'Alegreya Sans SC'", 'AaБб'),
         document.fonts.load("700 1em 'Space Mono'", 'AaBb'),
         document.fonts.load("400 1em 'Space Mono'", 'AaBb'),
+        document.fonts.load("900 1em 'Archivo'", '&'),
+        document.fonts.load("400 1em 'Archivo'", '&'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -785,18 +797,36 @@ const normalizeMixedScript = (str) =>
 const MetaText = ({ text }) => {
   const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
-  let last = 0;
-  for (const m of str.matchAll(META_LATIN_RUN)) {
-    if (m.index > last) parts.push(str.slice(last, m.index));
-    parts.push(
-      <span
-        key={m.index}
-        style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
-      >{m[0]}</span>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < str.length) parts.push(str.slice(last));
+
+  // Разбор фрагмента без амперсандов: латиница выделяется в span со шрифтом Space Mono и капителью
+  const pushSegment = (segment, offset) => {
+    let last = 0;
+    for (const m of segment.matchAll(META_LATIN_RUN)) {
+      if (m.index > last) parts.push(segment.slice(last, m.index));
+      parts.push(
+        <span
+          key={`l-${offset + m.index}`}
+          style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
+        >{m[0]}</span>
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < segment.length) parts.push(segment.slice(last));
+  };
+
+  // Амперсанд выделяется в отдельный span с шрифтом, у которого классическое начертание «&»
+  let pos = 0;
+  str.split('&').forEach((segment, i, arr) => {
+    pushSegment(segment, pos);
+    pos += segment.length;
+    if (i < arr.length - 1) {
+      parts.push(
+        <span key={`a-${pos}`} style={{ fontFamily: META_AMP_FONT_FAMILY }}>&amp;</span>
+      );
+      pos += 1;
+    }
+  });
+
   return <>{parts}</>;
 };
 
