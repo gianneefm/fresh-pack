@@ -21,6 +21,11 @@ const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
 const META_LATIN_LINK_ID = 'app-space-mono-font';
 const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
 
+// У Space Mono нет начертания тяжелее 700, а кириллица в названии рисуется весом 900.
+// Чтобы латиница в названии выглядела такой же жирной, её дополнительно утолщает контур (-webkit-text-stroke) цвета текста.
+// Толщина задана в em, поэтому одинаково работает на обычных и увеличенных карточках, а также в экспортируемых PNG.
+const META_LATIN_BOLD_STROKE = '0.05em';
+
 // Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
 // Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
 // Эти константы используются только полем ввода в форме (input.meta-input).
@@ -807,7 +812,8 @@ const normalizeMixedScript = (str) =>
       : word
   );
 
-const MetaText = ({ text }) => {
+// bold: для названия релиза латиница утолщается контуром, чтобы по весу совпадать с кириллицей (900)
+const MetaText = ({ text, bold = false }) => {
   const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
 
@@ -819,7 +825,12 @@ const MetaText = ({ text }) => {
       parts.push(
         <span
           key={`l-${offset + m.index}`}
-          style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
+          style={{
+            fontFamily: META_LATIN_FONT_FAMILY,
+            fontVariantCaps: 'small-caps',
+            fontSynthesis: 'small-caps',
+            ...(bold ? { fontWeight: 700, WebkitTextStroke: `${META_LATIN_BOLD_STROKE} currentColor` } : {}),
+          }}
         >{m[0]}</span>
       );
       last = m.index + m[0].length;
@@ -878,7 +889,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, wordSpacing: '0.15em' }}
-          >{<MetaText text={title} />}</h3>
+          >{<MetaText text={title} bold />}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400, wordSpacing: '0.15em' }}
@@ -1226,8 +1237,9 @@ const FreshPackOFlow = () => {
 
   // rowBgColor используется только для расчёта цветов звёзд в футерах тиров и секторов диаграммы,
   // listBgColor (примерные hex-цвета из w27: Tailwind-цвет с 60% прозрачностью поверх чёрного фона) используется как фон строки с карточками.
+  // bgColor TOP: тёмный малахитовый.
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#055720", listBgColor: "#0A6F4D", textColorClass: "text-white" },
+    { label: "TOP", icon: Star, bgColor: "#0B5E3C", rowBgColor: "#4df9c3", listBgColor: "#0A6F4D", textColorClass: "text-white" },
     { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", listBgColor: "#4B5C23", textColorClass: "text-white" },
     { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", listBgColor: "#935F07", textColorClass: "text-white" },
     { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", listBgColor: "#95450D", textColorClass: "text-white" },
