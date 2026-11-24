@@ -34,6 +34,13 @@ const CARD_AMP_FONT_FAMILY = "'Libre Baskerville', serif";
 const CARD_AMP_LINK_ID = 'app-libre-baskerville-amp-font';
 const CARD_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&text=%26&display=swap';
 
+// Кириллические «У» и «у» в карточках релизов: отдельный шрифт с классическим кириллическим начертанием.
+// Подгружается подмножество, содержащее только эти два символа (text=%D0%A3%D1%83), с начертаниями 400 и 900,
+// поэтому толщина букв берётся из родительского элемента и не меняется. Поле ввода в форме эти константы не использует.
+const CARD_U_FONT_FAMILY = "'Roboto', 'Alegreya Sans SC', sans-serif";
+const CARD_U_LINK_ID = 'app-roboto-u-font';
+const CARD_U_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;900&text=%D0%A3%D1%83&display=swap';
+
 // В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Space Mono, кириллица из Alegreya Sans SC.
 // Пробелы в таком стеке рисует Space Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
 const META_INPUT_WORD_SPACING = '-0.25em';
@@ -85,7 +92,11 @@ const useAppFont = () => {
     cardAmpLink.id = CARD_AMP_LINK_ID;
     cardAmpLink.rel = 'stylesheet';
     cardAmpLink.href = CARD_AMP_FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink, cardAmpLink);
+    const cardULink = document.createElement('link');
+    cardULink.id = CARD_U_LINK_ID;
+    cardULink.rel = 'stylesheet';
+    cardULink.href = CARD_U_FONT_HREF;
+    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink, cardAmpLink, cardULink);
   }, []);
 };
 
@@ -107,6 +118,8 @@ const exportElement = async (ref, fileName) => {
         document.fonts.load("400 1em 'Archivo'", '&'),
         document.fonts.load("700 1em 'Libre Baskerville'", '&'),
         document.fonts.load("400 1em 'Libre Baskerville'", '&'),
+        document.fonts.load("900 1em 'Roboto'", 'Уу'),
+        document.fonts.load("400 1em 'Roboto'", 'Уу'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -790,6 +803,9 @@ const isPerfectScore = (score) => score !== null && score !== undefined && score
 // Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Space Mono и капителью
 const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:['’][A-Za-z\u00C0-\u024F]+)*/g;
 
+// Кириллические «У» и «у» (U+0423 и U+0443) выделяются в отдельные span со шрифтом, у которого классическое начертание
+const META_CYRILLIC_U_RE = /[\u0423\u0443]/g;
+
 // Латинские буквы, внешне неотличимые от кириллических (частая причина «неправильной» у/У и подобных букв в кириллических словах).
 // Только для отображения: данные релиза не меняются.
 const LATIN_TO_CYRILLIC_LOOKALIKES = {
@@ -811,11 +827,28 @@ const MetaText = ({ text }) => {
   const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
 
+  // Не латинский фрагмент: кириллические «У» и «у» выделяются в span со шрифтом классического начертания (вес наследуется от родителя),
+  // строчная «у» рисуется капителью, как и остальные строчные буквы в метаданных
+  const pushPlain = (plain, offset) => {
+    let from = 0;
+    for (const m of plain.matchAll(META_CYRILLIC_U_RE)) {
+      if (m.index > from) parts.push(plain.slice(from, m.index));
+      parts.push(
+        <span
+          key={`u-${offset + m.index}`}
+          style={{ fontFamily: CARD_U_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
+        >{m[0]}</span>
+      );
+      from = m.index + m[0].length;
+    }
+    if (from < plain.length) parts.push(plain.slice(from));
+  };
+
   // Разбор фрагмента без амперсандов: латиница выделяется в span со шрифтом Space Mono и капителью
   const pushSegment = (segment, offset) => {
     let last = 0;
     for (const m of segment.matchAll(META_LATIN_RUN)) {
-      if (m.index > last) parts.push(segment.slice(last, m.index));
+      if (m.index > last) pushPlain(segment.slice(last, m.index), offset + last);
       parts.push(
         <span
           key={`l-${offset + m.index}`}
@@ -824,7 +857,7 @@ const MetaText = ({ text }) => {
       );
       last = m.index + m[0].length;
     }
-    if (last < segment.length) parts.push(segment.slice(last));
+    if (last < segment.length) pushPlain(segment.slice(last), offset + last);
   };
 
   // Амперсанд в карточках выделяется в отдельный span с шрифтом, у которого классическое начертание «&»
