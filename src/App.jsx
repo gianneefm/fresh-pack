@@ -1296,7 +1296,7 @@ const FreshPackOFlow = () => {
         val: wNum,
         computedColor: getTierFooterColor(t.rowBgColor, t.bgColor, count, scored.length),
         // Цвет не закрашенной части звезды в футере тира
-        emptyColor: '#b0afac',
+        emptyColor: '#585858',
       };
     });
 
