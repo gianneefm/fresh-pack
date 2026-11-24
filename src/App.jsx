@@ -21,11 +21,6 @@ const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
 const META_LATIN_LINK_ID = 'app-space-mono-font';
 const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
 
-// У Space Mono нет начертания тяжелее 700, а кириллица в названии рисуется весом 900.
-// Чтобы латиница в названии выглядела такой же жирной, её дополнительно утолщает контур (-webkit-text-stroke) цвета текста.
-// Толщина задана в em, поэтому одинаково работает на обычных и увеличенных карточках, а также в экспортируемых PNG.
-const META_LATIN_BOLD_STROKE = '0.05em';
-
 // Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
 // Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
 // Эти константы используются только полем ввода в форме (input.meta-input).
@@ -812,8 +807,7 @@ const normalizeMixedScript = (str) =>
       : word
   );
 
-// bold: для названия релиза латиница утолщается контуром, чтобы по весу совпадать с кириллицей (900)
-const MetaText = ({ text, bold = false }) => {
+const MetaText = ({ text }) => {
   const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
 
@@ -825,12 +819,7 @@ const MetaText = ({ text, bold = false }) => {
       parts.push(
         <span
           key={`l-${offset + m.index}`}
-          style={{
-            fontFamily: META_LATIN_FONT_FAMILY,
-            fontVariantCaps: 'small-caps',
-            fontSynthesis: 'small-caps',
-            ...(bold ? { fontWeight: 700, WebkitTextStroke: `${META_LATIN_BOLD_STROKE} currentColor` } : {}),
-          }}
+          style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
         >{m[0]}</span>
       );
       last = m.index + m[0].length;
@@ -889,7 +878,7 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, wordSpacing: '0.15em' }}
-          >{<MetaText text={title} bold />}</h3>
+          >{<MetaText text={title} />}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400, wordSpacing: '0.15em' }}
@@ -1122,6 +1111,11 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
   const currentCaption = isNAState ? 'READY FOR RUSH…' : captions[dominantLabel];
   const captionLines = currentCaption.split(' | ');
 
+  // Цвет сообщений в графе MAIN VIBE OF THE WEEK: точно bgColor доминирующего тира (в пустом состоянии остаётся прежний цвет)
+  const captionColor = isNAState
+    ? dominantColor
+    : (tierBase.find(t => t.label === dominantLabel)?.bgColor ?? dominantColor);
+
   return (
     <footer ref={footerRef} className="mt-12 w-full flex flex-col items-center justify-center select-none overflow-hidden mb-12 font-sans bg-black">
       <div className="w-full bg-white/5 border-t border-x border-white/10 px-4 sm:px-10 flex flex-col items-center min-h-[620px]" style={{ clipPath: 'polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%)' }}>
@@ -1149,7 +1143,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
             <div className="flex flex-col items-start leading-[0.85]">
               {captionLines.map((line, idx) => {
                 const isSubtext = line.includes('(');
-                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-3xl'}`} style={{ color: dominantColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
+                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-3xl'}`} style={{ color: captionColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
               })}
             </div>
           </div>
@@ -1176,7 +1170,7 @@ const Header = ({ weekNumber, dateRangeText }) => {
   return (
     <header ref={ref} className="flex flex-col items-center mb-10 text-center select-none pb-4 font-sans relative">
       <div className="absolute inset-0 z-50 opacity-0 cursor-pointer" onClick={() => exportElement(ref, 'Header')} />
-      <h1 className="font-black tracking-tighter uppercase bg-clip-text text-transparent leading-[1.2] px-8" style={{ backgroundImage: 'linear-gradient(to right, #059669, #7d9a3a, #f59e0b, #ea580c, #b91c1c)', whiteSpace: 'nowrap', WebkitBackgroundClip: 'text', backgroundClip: 'text', fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' }}>FRESH PACK O'FLOW</h1>
+      <h1 className="font-black tracking-tighter uppercase bg-clip-text text-transparent leading-[1.2] px-8" style={{ backgroundImage: 'linear-gradient(to right, #4df9c3, #ecffbd, #ffe089, #f9b18b, #fc8585)', whiteSpace: 'nowrap', WebkitBackgroundClip: 'text', backgroundClip: 'text', fontSize: 'clamp(1.5rem, 8.5vw, 5rem)' }}>FRESH PACK O'FLOW</h1>
       <p className="text-lg sm:text-2xl font-bold mt-2 text-gray-400">{dateRangeText}</p>
       <p className="text-sm sm:text-base font-extrabold tracking-widest text-gray-600 mt-1 uppercase">WEEK {weekNumber}</p>
     </header>
@@ -1237,9 +1231,8 @@ const FreshPackOFlow = () => {
 
   // rowBgColor используется только для расчёта цветов звёзд в футерах тиров и секторов диаграммы,
   // listBgColor (примерные hex-цвета из w27: Tailwind-цвет с 60% прозрачностью поверх чёрного фона) используется как фон строки с карточками.
-  // bgColor TOP: тёмный малахитовый.
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#0B5E3C", rowBgColor: "#4df9c3", listBgColor: "#27493b", textColorClass: "text-white" },
+    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", listBgColor: "#0A6F4D", textColorClass: "text-white" },
     { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", listBgColor: "#4B5C23", textColorClass: "text-white" },
     { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", listBgColor: "#935F07", textColorClass: "text-white" },
     { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", listBgColor: "#95450D", textColorClass: "text-white" },
