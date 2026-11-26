@@ -1265,8 +1265,8 @@ const FreshPackOFlow = () => {
   // rowBgColor используется только для расчёта цветов звёзд в футерах тиров и секторов диаграммы,
   // listBgColor (примерные hex-цвета из w27: Tailwind-цвет с 60% прозрачностью поверх чёрного фона) используется как фон строки с карточками.
   const tierBase = useMemo(() => [
-    { label: "TOP", icon: Star, bgColor: "#059669", rowBgColor: "#4df9c3", listBgColor: "#0A6F4D", textColorClass: "text-white" },
-    { label: "POP", icon: TrendingUp, bgColor: "#7d9a3a", rowBgColor: "#ecffbd", listBgColor: "#4B5C23", textColorClass: "text-white" },
+    { label: "TOP", icon: Star, bgColor: "#0a6f4d", rowBgColor: "#92efce", listBgColor: "#134936", textColorClass: "text-white" },
+    { label: "POP", icon: TrendingUp, bgColor: "#76862c", rowBgColor: "#ecffbd", listBgColor: "#4B5C23", textColorClass: "text-white" },
     { label: "MOP", icon: Minus, bgColor: "#f59e0b", rowBgColor: "#ffe089", listBgColor: "#935F07", textColorClass: "text-white" },
     { label: "FLOP", icon: TrendingDown, bgColor: "#ea580c", rowBgColor: "#f9b18b", listBgColor: "#95450D", textColorClass: "text-white" },
     { label: "STOP", icon: XCircle, bgColor: "#ef4444", rowBgColor: "#fc8585", listBgColor: "#841717", textColorClass: "text-white" }
