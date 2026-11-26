@@ -15,11 +15,17 @@ const META_FONT_FAMILY = "'Alegreya Sans SC', sans-serif";
 const META_FONT_LINK_ID = 'app-alegreya-sans-sc-font';
 const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@400;900&display=swap';
 
-// Латиница в метаданных набирается Space Mono (у него нет кириллицы, поэтому кириллица остаётся за Alegreya Sans SC).
+// Латиница в метаданных набирается Azeret Mono (у него нет кириллицы, поэтому кириллица остаётся за Alegreya Sans SC).
+// У Azeret Mono есть настоящие начертания 400 и 900, поэтому жирность латиницы близка к жирности кириллицы Alegreya Sans SC.
 // Капитель: font-variant-caps берёт настоящую капитель шрифта, если она есть, иначе браузер синтезирует её (font-synthesis: small-caps).
-const META_LATIN_FONT_FAMILY = "'Space Mono', 'Alegreya Sans SC', monospace";
-const META_LATIN_LINK_ID = 'app-space-mono-font';
-const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap';
+const META_LATIN_FONT_FAMILY = "'Azeret Mono', 'Alegreya Sans SC', monospace";
+const META_LATIN_LINK_ID = 'app-azeret-mono-font';
+const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;900&display=swap';
+
+// Толщина обводки латиницы в карточках (в em): компенсирует утончение штрихов от синтезированной капители.
+// Подбирается на глаз: чем больше значение, тем жирнее латиница. 0 отключает обводку.
+const META_LATIN_STROKE_TITLE = 0.012;
+const META_LATIN_STROKE_ARTIST = 0;
 
 // Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
 // Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
@@ -41,8 +47,8 @@ const CARD_U_FONT_FAMILY = "'Roboto', 'Alegreya Sans SC', sans-serif";
 const CARD_U_LINK_ID = 'app-roboto-u-font';
 const CARD_U_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;900&text=%D0%A3%D1%83&display=swap';
 
-// В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Space Mono, кириллица из Alegreya Sans SC.
-// Пробелы в таком стеке рисует Space Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
+// В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Azeret Mono, кириллица из Alegreya Sans SC.
+// Пробелы в таком стеке рисует Azeret Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
 const META_INPUT_WORD_SPACING = '-0.25em';
 
 const FONT_CSS = `
@@ -112,8 +118,8 @@ const exportElement = async (ref, fileName) => {
         document.fonts.load("400 1em 'Inter'", 'AaБб'),
         document.fonts.load("900 1em 'Alegreya Sans SC'", 'AaБб'),
         document.fonts.load("400 1em 'Alegreya Sans SC'", 'AaБб'),
-        document.fonts.load("700 1em 'Space Mono'", 'AaBb'),
-        document.fonts.load("400 1em 'Space Mono'", 'AaBb'),
+        document.fonts.load("900 1em 'Azeret Mono'", 'AaBb'),
+        document.fonts.load("400 1em 'Azeret Mono'", 'AaBb'),
         document.fonts.load("900 1em 'Archivo'", '&'),
         document.fonts.load("400 1em 'Archivo'", '&'),
         document.fonts.load("700 1em 'Libre Baskerville'", '&'),
@@ -800,7 +806,7 @@ const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
 const GOLD_METALLIC = 'linear-gradient(135deg, #8a6414 0%, #f7e08a 18%, #d4af37 36%, #fff6c4 50%, #c9a227 64%, #f1d36b 82%, #8a6414 100%)';
 const isPerfectScore = (score) => score !== null && score !== undefined && score >= 5;
 
-// Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Space Mono и капителью
+// Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Azeret Mono и капителью
 const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:['’][A-Za-z\u00C0-\u024F]+)*/g;
 
 // Кириллические «У» и «у» (U+0423 и U+0443) выделяются в отдельные span со шрифтом, у которого классическое начертание
@@ -823,7 +829,8 @@ const normalizeMixedScript = (str) =>
       : word
   );
 
-const MetaText = ({ text }) => {
+// stroke: толщина обводки (в em) только для латинских фрагментов, чтобы их жирность совпадала с кириллицей
+const MetaText = ({ text, stroke = 0 }) => {
   const str = normalizeMixedScript(String(text ?? ''));
   const parts = [];
 
@@ -844,7 +851,7 @@ const MetaText = ({ text }) => {
     if (from < plain.length) parts.push(plain.slice(from));
   };
 
-  // Разбор фрагмента без амперсандов: латиница выделяется в span со шрифтом Space Mono и капителью
+  // Разбор фрагмента без амперсандов: латиница выделяется в span со шрифтом Azeret Mono и капителью
   const pushSegment = (segment, offset) => {
     let last = 0;
     for (const m of segment.matchAll(META_LATIN_RUN)) {
@@ -852,7 +859,12 @@ const MetaText = ({ text }) => {
       parts.push(
         <span
           key={`l-${offset + m.index}`}
-          style={{ fontFamily: META_LATIN_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
+          style={{
+            fontFamily: META_LATIN_FONT_FAMILY,
+            fontVariantCaps: 'small-caps',
+            fontSynthesis: 'small-caps',
+            ...(stroke ? { WebkitTextStroke: `${stroke}em currentColor` } : null),
+          }}
         >{m[0]}</span>
       );
       last = m.index + m[0].length;
@@ -911,11 +923,11 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
           <h3
             className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, wordSpacing: '0.15em' }}
-          >{<MetaText text={title} />}</h3>
+          >{<MetaText text={title} stroke={META_LATIN_STROKE_TITLE} />}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
             style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400, wordSpacing: '0.15em' }}
-          >{<MetaText text={artist} />}</p>
+          >{<MetaText text={artist} stroke={META_LATIN_STROKE_ARTIST} />}</p>
         </div>
       </div>
     </div>
