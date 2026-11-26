@@ -10,46 +10,25 @@ const APP_FONT_FAMILY = "'Inter', sans-serif";
 const FONT_LINK_ID = 'app-inter-font';
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap';
 
-// Шрифт метаданных релизов (название и артист). Alegreya Sans SC: гротеск без засечек, настоящая капитель (строчные буквы рисуются капителью), кириллица, настоящие начертания 400 и 900.
-const META_FONT_FAMILY = "'Alegreya Sans SC', sans-serif";
-const META_FONT_LINK_ID = 'app-alegreya-sans-sc-font';
-const META_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@400;900&display=swap';
+// Метаданные релизов (название и артист) набираются тем же шрифтом Inter, но с капителью:
+// font-variant-caps берёт настоящую капитель шрифта, если она есть, иначе браузер синтезирует её (font-synthesis: small-caps).
+// Жирность: название релиза 900, имя артиста 500.
+const META_TITLE_WEIGHT = 900;
+const META_ARTIST_WEIGHT = 500;
 
-// Латиница в метаданных набирается Azeret Mono (у него нет кириллицы, поэтому кириллица остаётся за Alegreya Sans SC).
-// У Azeret Mono есть настоящие начертания 400 и 900, поэтому жирность латиницы близка к жирности кириллицы Alegreya Sans SC.
-// Капитель: font-variant-caps берёт настоящую капитель шрифта, если она есть, иначе браузер синтезирует её (font-synthesis: small-caps).
-const META_LATIN_FONT_FAMILY = "'Azeret Mono', 'Alegreya Sans SC', monospace";
-const META_LATIN_LINK_ID = 'app-azeret-mono-font';
-const META_LATIN_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;900&display=swap';
+// Небольшое увеличение межбуквенного расстояния, чтобы сочетания вроде IP, IF, NF не слипались (в em).
+// Подбирается на глаз: чем больше значение, тем шире расстояние между буквами.
+const META_LETTER_SPACING = '0.04em';
+const CAPTION_LETTER_SPACING = '0.04em';
 
-// Толщина обводки латиницы в карточках (в em): компенсирует утончение штрихов от синтезированной капители.
-// Подбирается на глаз: чем больше значение, тем жирнее латиница. 0 отключает обводку.
-const META_LATIN_STROKE_TITLE = 0.012;
-const META_LATIN_STROKE_ARTIST = 0;
-
-// Амперсанд в метаданных рисуется отдельным шрифтом с классическим начертанием «&».
-// Подгружается подмножество шрифта Archivo, содержащее только символ & (text=%26), поэтому остальной текст этот шрифт не затрагивает.
-// Эти константы используются только полем ввода в форме (input.meta-input).
-const META_AMP_FONT_FAMILY = "'Archivo', sans-serif";
-const META_AMP_LINK_ID = 'app-archivo-amp-font';
-const META_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;900&text=%26&display=swap';
-
-// Амперсанд в карточках релизов: отдельный шрифт с классическим начертанием «&» (антиква).
-// Подгружается подмножество, содержащее только символ & (text=%26). Поле ввода в форме эти константы не использует.
-const CARD_AMP_FONT_FAMILY = "'Libre Baskerville', serif";
-const CARD_AMP_LINK_ID = 'app-libre-baskerville-amp-font';
-const CARD_AMP_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&text=%26&display=swap';
-
-// Кириллические «У» и «у» в карточках релизов: отдельный шрифт с классическим кириллическим начертанием.
-// Подгружается подмножество, содержащее только эти два символа (text=%D0%A3%D1%83), с начертаниями 400 и 900,
-// поэтому толщина букв берётся из родительского элемента и не меняется. Поле ввода в форме эти константы не использует.
-const CARD_U_FONT_FAMILY = "'Roboto', 'Alegreya Sans SC', sans-serif";
-const CARD_U_LINK_ID = 'app-roboto-u-font';
-const CARD_U_FONT_HREF = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;900&text=%D0%A3%D1%83&display=swap';
-
-// В поле ввода нельзя выделить латиницу отдельным span, поэтому используется стек шрифтов: латиница берётся из Azeret Mono, кириллица из Alegreya Sans SC.
-// Пробелы в таком стеке рисует Azeret Mono (шире, чем в карточках, где пробелы за Alegreya Sans SC), поэтому расстояние между словами уменьшается отрицательным word-spacing.
-const META_INPUT_WORD_SPACING = '-0.25em';
+// Единый стиль метаданных: используется и в карточках релизов, и в полях ввода формы, чтобы начертание совпадало
+const getMetaTextStyle = (weight) => ({
+  fontFamily: APP_FONT_FAMILY,
+  fontWeight: weight,
+  fontVariantCaps: 'small-caps',
+  fontSynthesis: 'small-caps',
+  letterSpacing: META_LETTER_SPACING,
+});
 
 const FONT_CSS = `
   :root { --app-font: ${APP_FONT_FAMILY}; }
@@ -57,7 +36,7 @@ const FONT_CSS = `
     font-family: var(--app-font) !important;
   }
   input.meta-input {
-    font-family: ${META_AMP_FONT_FAMILY.replace(", sans-serif", "")}, ${META_LATIN_FONT_FAMILY} !important;
+    font-family: var(--app-font) !important;
     font-variant-caps: small-caps;
     font-synthesis: small-caps;
   }
@@ -82,27 +61,7 @@ const useAppFont = () => {
     link.id = FONT_LINK_ID;
     link.rel = 'stylesheet';
     link.href = FONT_HREF;
-    const metaLink = document.createElement('link');
-    metaLink.id = META_FONT_LINK_ID;
-    metaLink.rel = 'stylesheet';
-    metaLink.href = META_FONT_HREF;
-    const latinLink = document.createElement('link');
-    latinLink.id = META_LATIN_LINK_ID;
-    latinLink.rel = 'stylesheet';
-    latinLink.href = META_LATIN_FONT_HREF;
-    const ampLink = document.createElement('link');
-    ampLink.id = META_AMP_LINK_ID;
-    ampLink.rel = 'stylesheet';
-    ampLink.href = META_AMP_FONT_HREF;
-    const cardAmpLink = document.createElement('link');
-    cardAmpLink.id = CARD_AMP_LINK_ID;
-    cardAmpLink.rel = 'stylesheet';
-    cardAmpLink.href = CARD_AMP_FONT_HREF;
-    const cardULink = document.createElement('link');
-    cardULink.id = CARD_U_LINK_ID;
-    cardULink.rel = 'stylesheet';
-    cardULink.href = CARD_U_FONT_HREF;
-    document.head.append(preconnect1, preconnect2, link, metaLink, latinLink, ampLink, cardAmpLink, cardULink);
+    document.head.append(preconnect1, preconnect2, link);
   }, []);
 };
 
@@ -112,20 +71,11 @@ const exportElement = async (ref, fileName) => {
   if (!ref.current) return;
   try {
     if (document.fonts?.load) {
-      // Явно догружаем оба шрифта (латиница + кириллица) до рендера PNG, чтобы экспорт не ушёл на запасной шрифт
+      // Явно догружаем шрифт (латиница + кириллица, все используемые начертания) до рендера PNG, чтобы экспорт не ушёл на запасной шрифт
       await Promise.all([
         document.fonts.load("900 1em 'Inter'", 'AaБб'),
+        document.fonts.load("500 1em 'Inter'", 'AaБб'),
         document.fonts.load("400 1em 'Inter'", 'AaБб'),
-        document.fonts.load("900 1em 'Alegreya Sans SC'", 'AaБб'),
-        document.fonts.load("400 1em 'Alegreya Sans SC'", 'AaБб'),
-        document.fonts.load("900 1em 'Azeret Mono'", 'AaBb'),
-        document.fonts.load("400 1em 'Azeret Mono'", 'AaBb'),
-        document.fonts.load("900 1em 'Archivo'", '&'),
-        document.fonts.load("400 1em 'Archivo'", '&'),
-        document.fonts.load("700 1em 'Libre Baskerville'", '&'),
-        document.fonts.load("400 1em 'Libre Baskerville'", '&'),
-        document.fonts.load("900 1em 'Roboto'", 'Уу'),
-        document.fonts.load("400 1em 'Roboto'", 'Уу'),
       ]).catch(() => {});
     }
     if (document.fonts?.ready) await document.fonts.ready;
@@ -525,15 +475,15 @@ const ReleaseFormModal = ({ isOpen, onClose, onSave, initialData, releases = [] 
 
           <div className="space-y-2">
             <input 
-              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white tracking-tight text-[10px] focus:outline-none focus:border-white/20" 
-              style={{ fontWeight: 900, wordSpacing: META_INPUT_WORD_SPACING }}
+              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-[10px] focus:outline-none focus:border-white/20" 
+              style={getMetaTextStyle(META_TITLE_WEIGHT)}
               placeholder="TITLE" 
               value={formData.title} 
               onChange={e => setFormData({...formData, title: e.target.value})} 
             />
             <input 
-              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white tracking-tight text-[10px] focus:outline-none focus:border-white/20" 
-              style={{ fontWeight: 400, wordSpacing: META_INPUT_WORD_SPACING }}
+              className="meta-input w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-[10px] focus:outline-none focus:border-white/20" 
+              style={getMetaTextStyle(META_ARTIST_WEIGHT)}
               placeholder="ARTIST" 
               value={formData.artist} 
               onChange={e => setFormData({...formData, artist: e.target.value})} 
@@ -806,88 +756,6 @@ const ScoresModal = ({ isOpen, onClose, release, onUpdate, onDelete }) => {
 const GOLD_METALLIC = 'linear-gradient(135deg, #8a6414 0%, #f7e08a 18%, #d4af37 36%, #fff6c4 50%, #c9a227 64%, #f1d36b 82%, #8a6414 100%)';
 const isPerfectScore = (score) => score !== null && score !== undefined && score >= 5;
 
-// Латинские фрагменты (вместе с внутренними пробелами и знаками препинания) выделяются в отдельные span со шрифтом Azeret Mono и капителью
-const META_LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F]+(?:['’][A-Za-z\u00C0-\u024F]+)*/g;
-
-// Кириллические «У» и «у» (U+0423 и U+0443) выделяются в отдельные span со шрифтом, у которого классическое начертание
-const META_CYRILLIC_U_RE = /[\u0423\u0443]/g;
-
-// Латинские буквы, внешне неотличимые от кириллических (частая причина «неправильной» у/У и подобных букв в кириллических словах).
-// Только для отображения: данные релиза не меняются.
-const LATIN_TO_CYRILLIC_LOOKALIKES = {
-  A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У',
-  a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', x: 'х', y: 'у',
-};
-const META_WORD_RE = /[A-Za-z\u0400-\u04FF]+/g;
-const META_CYRILLIC_RE = /[\u0400-\u04FF]/;
-
-// Если в слове есть кириллица, латинские двойники внутри него заменяются на кириллические буквы
-const normalizeMixedScript = (str) =>
-  str.replace(META_WORD_RE, (word) =>
-    META_CYRILLIC_RE.test(word)
-      ? word.replace(/[A-Za-z]/g, (ch) => LATIN_TO_CYRILLIC_LOOKALIKES[ch] ?? ch)
-      : word
-  );
-
-// stroke: толщина обводки (в em) только для латинских фрагментов, чтобы их жирность совпадала с кириллицей
-const MetaText = ({ text, stroke = 0 }) => {
-  const str = normalizeMixedScript(String(text ?? ''));
-  const parts = [];
-
-  // Не латинский фрагмент: кириллические «У» и «у» выделяются в span со шрифтом классического начертания (вес наследуется от родителя),
-  // строчная «у» рисуется капителью, как и остальные строчные буквы в метаданных
-  const pushPlain = (plain, offset) => {
-    let from = 0;
-    for (const m of plain.matchAll(META_CYRILLIC_U_RE)) {
-      if (m.index > from) parts.push(plain.slice(from, m.index));
-      parts.push(
-        <span
-          key={`u-${offset + m.index}`}
-          style={{ fontFamily: CARD_U_FONT_FAMILY, fontVariantCaps: 'small-caps', fontSynthesis: 'small-caps' }}
-        >{m[0]}</span>
-      );
-      from = m.index + m[0].length;
-    }
-    if (from < plain.length) parts.push(plain.slice(from));
-  };
-
-  // Разбор фрагмента без амперсандов: латиница выделяется в span со шрифтом Azeret Mono и капителью
-  const pushSegment = (segment, offset) => {
-    let last = 0;
-    for (const m of segment.matchAll(META_LATIN_RUN)) {
-      if (m.index > last) pushPlain(segment.slice(last, m.index), offset + last);
-      parts.push(
-        <span
-          key={`l-${offset + m.index}`}
-          style={{
-            fontFamily: META_LATIN_FONT_FAMILY,
-            fontVariantCaps: 'small-caps',
-            fontSynthesis: 'small-caps',
-            ...(stroke ? { WebkitTextStroke: `${stroke}em currentColor` } : null),
-          }}
-        >{m[0]}</span>
-      );
-      last = m.index + m[0].length;
-    }
-    if (last < segment.length) pushPlain(segment.slice(last), offset + last);
-  };
-
-  // Амперсанд в карточках выделяется в отдельный span с шрифтом, у которого классическое начертание «&»
-  let pos = 0;
-  str.split('&').forEach((segment, i, arr) => {
-    pushSegment(segment, pos);
-    pos += segment.length;
-    if (i < arr.length - 1) {
-      parts.push(
-        <span key={`a-${pos}`} style={{ fontFamily: CARD_AMP_FONT_FAMILY, fontVariantCaps: 'normal', fontStyle: 'normal' }}>&amp;</span>
-      );
-      pos += 1;
-    }
-  });
-
-  return <>{parts}</>;
-};
-
 const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
   const hasScore = score !== null && score !== undefined;
   const isPerfect = isPerfectScore(score);
@@ -921,13 +789,13 @@ const ReleaseItem = ({ title, artist, score, coverLink, onClick }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90" />
         <div className={`absolute bottom-0 left-0 w-full flex flex-col justify-end items-start overflow-hidden font-sans ${isPerfect ? 'p-4' : 'p-2.5'}`}>
           <h3
-            className={`text-white tracking-tight leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
-            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 900, wordSpacing: '0.15em' }}
-          >{<MetaText text={title} stroke={META_LATIN_STROKE_TITLE} />}</h3>
+            className={`text-white leading-tight w-full break-words ${isPerfect ? 'text-2xl sm:text-2xl' : 'text-[10px]'}`}
+            style={getMetaTextStyle(META_TITLE_WEIGHT)}
+          >{title}</h3>
           <p
             className={`text-white/80 leading-tight mt-1 w-full break-words ${isPerfect ? 'text-xl sm:text-xl' : 'text-[8px]'}`}
-            style={{ fontFamily: META_FONT_FAMILY, fontWeight: 400, wordSpacing: '0.15em' }}
-          >{<MetaText text={artist} stroke={META_LATIN_STROKE_ARTIST} />}</p>
+            style={getMetaTextStyle(META_ARTIST_WEIGHT)}
+          >{artist}</p>
         </div>
       </div>
     </div>
@@ -1188,7 +1056,7 @@ const MusicRankingFooter = ({ avgScore, isNAState, pieData, dominantIndex, domin
             <div className="flex flex-col items-start leading-[0.85]">
               {captionLines.map((line, idx) => {
                 const isSubtext = line.includes('(');
-                return <span key={idx} className={`font-black uppercase -tracking-widest ${isSubtext ? '' : 'text-3xl sm:text-3xl'}`} style={{ color: captionColor, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
+                return <span key={idx} className={`font-black uppercase ${isSubtext ? '' : 'text-3xl sm:text-3xl'}`} style={{ color: captionColor, letterSpacing: CAPTION_LETTER_SPACING, fontSize: isSubtext ? '0.75rem' : undefined, lineHeight: isSubtext ? '1.2' : undefined, marginTop: isSubtext ? '0.25rem' : undefined }}>{line}</span>
               })}
             </div>
           </div>
